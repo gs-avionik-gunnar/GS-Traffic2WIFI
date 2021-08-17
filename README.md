@@ -11,6 +11,9 @@ Softwareversion 1.1 is stable and proved reliable. Versions beetween 1.1 and 2.0
 - Power-Reducing-Mode for Wifi
 - NMEA-GRPMC-Fake for testing (only one dummy message)
 
+## Instructions
+For resetting the device to default please connect PIN 19 to GND and reboot the unit. After one second please disconnect and reboot again. The device is now on default-settings.
+
 
 You can see some videos of GS-Traffic2WIFI on my [Youtube-Channel](https://www.youtube.com/channel/UCv42FT93emRBfOEssAWbdOw)
 
