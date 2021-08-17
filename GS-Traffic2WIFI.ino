@@ -1,21 +1,23 @@
 // Changelog Softwareversion 1.9: Added Webserver for Status und Config, Added basic tweaks for Faking GDL90 and NMEA (no Code for faking GDL90 included)
 // Known issues:
-//    - human-readable status is not fully implemented
-//    - General: No Hardware-Reset2Defaults implemented
+//    - General: human-readable status is not fully implemented
 //    - Webconfig: Resetsettings does soemtimes not work with some browsers, reloading the page will solve the issure.
 //    - Webconfig: Status-Page has some scrolling-issues
-//    - Webconfig: Menu will not close after selecting an item
 // Changelog Softwareversion 1.1: Tweak for disabling default-gateway
 // Changelog Softwareversion 1.0: First stable version - airborne tested :)
+// Instructions for Resettings: Put PIN19 to GND at Startup, after a reboot defaults are restores
 
 // Debug-Messages on serial
-const int debug = 0; //0=Off, 1=Many, 2=More, 3=All 
+const int debug = 0; //0=Off, 1=Many, 2=More, 3=All
 
 // IP-Configuration
 IPAddress ip(192, 168, 1, 1);
 IPAddress gateway(192, 168, 1, 1);
 IPAddress netmask(255, 255, 255, 0);
 const char * udpAddress = "192.168.1.255";
+
+// Define Resetpin
+#define RESETPIN 19
 
 // Define Softserials
 #define NUM_COM 1
@@ -67,142 +69,139 @@ String inserial;
 // Extracting and saving Parts of NMEA-Data
 void extractdata(String nmeax)
 {
-       // nmeax="$GPRMC,,V,,,,,,,170821,,,N*5E";// Test, geht nicht
-        //nmeax="$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"; // Test, geht
-        
-        int str_len = nmeax.length() + 1; 
-        char nmea[str_len];
-        nmeax.toCharArray(nmea, str_len);
-        // Debug string to Serial
-        if (debug>0)
-        {
-           Serial.print("Extracting: ");           
-           Serial.println(nmea);           
-        }
-        char *nmeaa = NULL;
-        char *bufptr = nmea;
-        nmeaa = strsep(&bufptr, ",");
+  int str_len = nmeax.length() + 1;
+  char nmea[str_len];
+  nmeax.toCharArray(nmea, str_len);
+  // Debug string to Serial
+  if (debug > 0)
+  {
+    Serial.print("Extracting: ");
+    Serial.println(nmea);
+  }
+  char *nmeaa = NULL;
+  char *bufptr = nmea;
+  nmeaa = strsep(&bufptr, ",");
 
-        String messagetype=nmeaa;
-        // Extract Data, if Message is $GPRMC
-        if (messagetype=="$GPRMC")
+  String messagetype = nmeaa;
+  // Extract Data, if Message is $GPRMC
+  if (messagetype == "$GPRMC")
+  {
+    int inmeaa = 0;
+    gprmc = "";
+    while (nmeaa != NULL)
+    {
+      if (inmeaa == 1)
+      {
+        gprmc += "{\"t\":\"$GPRMC\",\"p\":\"Time of message\",";
+        gprmc += "\"v\":\"";
+        if (nmeaa != ",")
         {
-            int inmeaa=0;
-            gprmc="";
-            while(nmeaa != NULL)
-            {
-                    if (inmeaa==1)
-                    {
-                         gprmc+= "{\"t\":\"$GPRMC\",\"p\":\"Time of message\",";   
-                         gprmc+= "\"v\":\"";
-                         if (nmeaa!=",")
-                         {
-                            gprmc+= nmeaa;
-                         }
-                         gprmc+= "\",";
-                         gprmc+= "\"h\":\"";
-                          if (nmeaa!=",")
-                         {
-                            gprmc+= nmeaa;
-                            gprmc+= " UTC";
-                         }
-                         gprmc+= "\"},";
-                    }
-                    if (inmeaa==2)
-                    {
-                         gprmc+= "{\"t\":\"$GPRMC\",\"p\":\"Position state\",";   
-                         gprmc+= "\"v\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\",";
-                         gprmc+= "\"h\":\"";
-                         if (nmeaa=="A")
-                         {
-                            gprmc+= "VALID";
-                         }else
-                         {
-                            gprmc+= "NOT VALID";
-                         }                         
-                         gprmc+= "\"},";
-                    }
-                    if (inmeaa==3)
-                    {
-                         gprmc+= "{\"t\":\"$GPRMC\",\"p\":\"Latitude\",";   
-                         gprmc+= "\"v\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\",";
-                         gprmc+= "\"h\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\"},";
-                    }
-                    if (inmeaa==4)
-                    {
-                         gprmc+= "{\"t\":\"$GPRMC\",\"p\":\"Latitude direction\",";   
-                         gprmc+= "\"v\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\",";
-                         gprmc+= "\"h\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\"},";
-                    }
-                     if (inmeaa==5)
-                    {
-                         gprmc+= "{\"t\":\"$GPRMC\",\"p\":\"Longitude \",";   
-                         gprmc+= "\"v\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\",";
-                         gprmc+= "\"h\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\"},";
-                    }
-                     if (inmeaa==6)
-                    {
-                         gprmc+= "{\"t\":\"$GPRMC\",\"p\":\"Longitude direction \",";   
-                         gprmc+= "\"v\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\",";
-                         gprmc+= "\"h\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\"},";
-                    }
-                     if (inmeaa==7)
-                    {
-                         gprmc+= "{\"t\":\"$GPRMC\",\"p\":\"Speed over Ground \",";   
-                         gprmc+= "\"v\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\",";
-                         gprmc+= "\"h\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "kts\"},";
-                    }
-                     if (inmeaa==9)
-                    {
-                         gprmc+= "{\"t\":\"$GPRMC\",\"p\":\"Date \",";   
-                         gprmc+= "\"v\":\"";
-                         gprmc+= nmeaa;
-                         gprmc+= "\",";
-                         gprmc+= "\"h\":\"";
-                         gprmc+= nmeaa[4];
-                         gprmc+= nmeaa[5];
-                         gprmc+= "/";
-                         gprmc+= nmeaa[2];
-                         gprmc+= nmeaa[3];
-                         gprmc+= "/";
-                         gprmc+= nmeaa[0];
-                         gprmc+= nmeaa[1];                         
-                         gprmc+= "\"}";
-                    }
-                   
-                    nmeaa = strsep(&bufptr, ",");
-
-                    inmeaa++;
-            }
-            // Debug full string to Serial
-            if (debug>0)
-            {
-              Serial.print("Result of extracting: ");           
-              Serial.println(gprmc);           
-            }
+          gprmc += nmeaa;
         }
+        gprmc += "\",";
+        gprmc += "\"h\":\"";
+        if (nmeaa != ",")
+        {
+          gprmc += nmeaa;
+          gprmc += " UTC";
+        }
+        gprmc += "\"},";
+      }
+      if (inmeaa == 2)
+      {
+        gprmc += "{\"t\":\"$GPRMC\",\"p\":\"Position state\",";
+        gprmc += "\"v\":\"";
+        gprmc += nmeaa;
+        gprmc += "\",";
+        gprmc += "\"h\":\"";
+        if (nmeaa == "A")
+        {
+          gprmc += "VALID";
+        } else
+        {
+          gprmc += "NOT VALID";
+        }
+        gprmc += "\"},";
+      }
+      if (inmeaa == 3)
+      {
+        gprmc += "{\"t\":\"$GPRMC\",\"p\":\"Latitude\",";
+        gprmc += "\"v\":\"";
+        gprmc += nmeaa;
+        gprmc += "\",";
+        gprmc += "\"h\":\"";
+        gprmc += nmeaa;
+        gprmc += "\"},";
+      }
+      if (inmeaa == 4)
+      {
+        gprmc += "{\"t\":\"$GPRMC\",\"p\":\"Latitude direction\",";
+        gprmc += "\"v\":\"";
+        gprmc += nmeaa;
+        gprmc += "\",";
+        gprmc += "\"h\":\"";
+        gprmc += nmeaa;
+        gprmc += "\"},";
+      }
+      if (inmeaa == 5)
+      {
+        gprmc += "{\"t\":\"$GPRMC\",\"p\":\"Longitude \",";
+        gprmc += "\"v\":\"";
+        gprmc += nmeaa;
+        gprmc += "\",";
+        gprmc += "\"h\":\"";
+        gprmc += nmeaa;
+        gprmc += "\"},";
+      }
+      if (inmeaa == 6)
+      {
+        gprmc += "{\"t\":\"$GPRMC\",\"p\":\"Longitude direction \",";
+        gprmc += "\"v\":\"";
+        gprmc += nmeaa;
+        gprmc += "\",";
+        gprmc += "\"h\":\"";
+        gprmc += nmeaa;
+        gprmc += "\"},";
+      }
+      if (inmeaa == 7)
+      {
+        gprmc += "{\"t\":\"$GPRMC\",\"p\":\"Speed over Ground \",";
+        gprmc += "\"v\":\"";
+        gprmc += nmeaa;
+        gprmc += "\",";
+        gprmc += "\"h\":\"";
+        gprmc += nmeaa;
+        gprmc += "kts\"},";
+      }
+      if (inmeaa == 9)
+      {
+        gprmc += "{\"t\":\"$GPRMC\",\"p\":\"Date \",";
+        gprmc += "\"v\":\"";
+        gprmc += nmeaa;
+        gprmc += "\",";
+        gprmc += "\"h\":\"";
+        gprmc += nmeaa[4];
+        gprmc += nmeaa[5];
+        gprmc += "/";
+        gprmc += nmeaa[2];
+        gprmc += nmeaa[3];
+        gprmc += "/";
+        gprmc += nmeaa[0];
+        gprmc += nmeaa[1];
+        gprmc += "\"}";
+      }
+
+      nmeaa = strsep(&bufptr, ",");
+
+      inmeaa++;
+    }
+    // Debug full string to Serial
+    if (debug > 0)
+    {
+      Serial.print("Result of extracting: ");
+      Serial.println(gprmc);
+    }
+  }
 }
 
 // Reset to "Default-Settings"
@@ -241,31 +240,31 @@ void applysettings()
   preferences.putInt("baudrate", webserver.arg("baudrate").toInt());
   preferences.putInt("tcpport", webserver.arg("tcpport").toInt());
   preferences.putInt("udpport", webserver.arg("udpport").toInt());
-  if (webserver.arg("defgw")=="on")
+  if (webserver.arg("defgw") == "on")
   {
     preferences.putInt("defgw", 1);
-  }else
+  } else
   {
     preferences.putInt("defgw", 0);
-  }  
-  if (webserver.arg("redpw")=="on")
+  }
+  if (webserver.arg("redpw") == "on")
   {
     preferences.putInt("redpw", 1);
-  }else
+  } else
   {
     preferences.putInt("redpw", 0);
   }
-  if (webserver.arg("fakenmea")=="on")
+  if (webserver.arg("fakenmea") == "on")
   {
     preferences.putInt("fakenmea", 1);
-  }else
+  } else
   {
     preferences.putInt("fakenmea", 0);
   }
-  if (webserver.arg("fakegdl90")=="on")
+  if (webserver.arg("fakegdl90") == "on")
   {
     preferences.putInt("fakegdl90", 1);
-  }else
+  } else
   {
     preferences.putInt("fakegdl90", 0);
   }
@@ -278,52 +277,52 @@ void applysettings()
 
 // Sending JSON (gs.json) to Client
 void sendjson() {
-    preferences.begin("GS-Traffic", false);
-  
-    String response = "{";
-    response+= "\"version\":\"";   
-    response+= "1.9a BETA";
-   
-    char mac[50] = "";
-    esp_efuse_read_mac(chipid);
-    sprintf(mac, "%02x:%02x:%02x:%02x:%02x:%02x",  chipid[0], chipid[1], chipid[2], chipid[3], chipid[4], chipid[5]);
+  preferences.begin("GS-Traffic", false);
 
-    response+= "\",\"mac\":\"";
-    response+= mac;
+  String response = "{";
+  response += "\"version\":\"";
+  response += "1.9a BETA";
 
-    response+= "\",\"ssid\":\"";
-    response+= preferences.getString("ssid", "");
+  char mac[50] = "";
+  esp_efuse_read_mac(chipid);
+  sprintf(mac, "%02x:%02x:%02x:%02x:%02x:%02x",  chipid[0], chipid[1], chipid[2], chipid[3], chipid[4], chipid[5]);
 
-    response+= "\",\"wpakey\":\"";
-    response+= preferences.getString("wpakey", "");  
+  response += "\",\"mac\":\"";
+  response += mac;
 
-    response+= "\",\"defgw\":";
-    response+= preferences.getInt("defgw", 0);
+  response += "\",\"ssid\":\"";
+  response += preferences.getString("ssid", "");
 
-    response+= ",\"redpw\":";
-    response+= preferences.getInt("redpw", 0);
-    
-    response+= ",\"tcpport\":";
-    response+= preferences.getInt("tcpport", 0);
+  response += "\",\"wpakey\":\"";
+  response += preferences.getString("wpakey", "");
 
-    response+= ",\"udpport\":";
-    response+= preferences.getInt("udpport", 0);
-    
-    response+= ",\"baudrate\":";
-    response+= preferences.getInt("baudrate", 0);
+  response += "\",\"defgw\":";
+  response += preferences.getInt("defgw", 0);
 
-    response+= ",\"fakenmea\":";
-    response+= preferences.getInt("fakenmea", 0);
+  response += ",\"redpw\":";
+  response += preferences.getInt("redpw", 0);
 
-    response+= ",\"fakegdl90\":";
-    response+= preferences.getInt("fakegdl90", 0);
+  response += ",\"tcpport\":";
+  response += preferences.getInt("tcpport", 0);
 
-    response+= ",\"cap\":[";
-    response+= gprmc;
-    response+= "]";
-    
-    response+= "}";
-    webserver.send(200, "text/json", response);
+  response += ",\"udpport\":";
+  response += preferences.getInt("udpport", 0);
+
+  response += ",\"baudrate\":";
+  response += preferences.getInt("baudrate", 0);
+
+  response += ",\"fakenmea\":";
+  response += preferences.getInt("fakenmea", 0);
+
+  response += ",\"fakegdl90\":";
+  response += preferences.getInt("fakegdl90", 0);
+
+  response += ",\"cap\":[";
+  response += gprmc;
+  response += "]";
+
+  response += "}";
+  webserver.send(200, "text/json", response);
 }
 
 // Generating CRC16-Table for GDL90
@@ -359,16 +358,26 @@ unsigned int crcCompute(unsigned char *block, unsigned long int length)
 void setup() {
   crcInit();
   preferences.begin("GS-Traffic", false);
-  
+
   // Resetting to Defaults, if no SSID is found (ESP32 seems to be blank)
-  if (preferences.getString("ssid", "")=="")
+  if (preferences.getString("ssid", "") == "")
   {
-	  defaultsettings();
+    defaultsettings();
   }
-  
+
   // Starting serial based on configuration
   Serial.begin(preferences.getInt("baudrate", 0));
-  
+
+  // Checking Resetpin by Hardware, if DOWN (GND), Reset to defaults
+  pinMode(RESETPIN, INPUT);
+  pinMode(RESETPIN, INPUT_PULLUP);
+  delay(50);
+  if (digitalRead(RESETPIN) == 0)
+  {
+    Serial.println("Resetting");
+    defaultsettings();
+  }
+
   String tmpssid;
   String tmpwpakey;
   tmpssid = preferences.getString("ssid", "");
@@ -380,7 +389,7 @@ void setup() {
   COM[0]->begin(preferences.getInt("baudrate", 0), SERIAL_PARAM0, SERIAL0_RXPIN, SERIAL0_TXPIN); // Changed to variable Baudrate
 
   // No Default-GW-Routing, if disabled (default)
-  if (preferences.getInt("defgw", 0)==0)
+  if (preferences.getInt("defgw", 0) == 0)
   {
     uint8_t val = 0;
     tcpip_adapter_dhcps_option(TCPIP_ADAPTER_OP_SET, TCPIP_ADAPTER_ROUTER_SOLICITATION_ADDRESS, &val, sizeof(dhcps_offer_t));
@@ -395,7 +404,7 @@ void setup() {
   Serial.print(ssid);
   Serial.print("@");
   Serial.print(wpakey);
-  
+
   server[0]->begin(preferences.getInt("tcpport", 0)); //Added variable port instead of initalizing outside setup()
   server[0]->setNoDelay(true);
 
@@ -403,9 +412,9 @@ void setup() {
 
 
   // Reducing Wifi-Power if enabled (not default)
-  if (preferences.getInt("redpw", 0)==1)
+  if (preferences.getInt("redpw", 0) == 1)
   {
-     esp_err_t esp_wifi_set_max_tx_power(50);
+    esp_err_t esp_wifi_set_max_tx_power(50);
   }
 
   // Starting UDP for GDL90
@@ -434,101 +443,93 @@ void loop()
 {
   // Handling Webserver
   webserver.handleClient();
-  
-  //for (int num = 0; num < NUM_COM ; num++)
-  //{
-    if (server[0]->hasClient())
-    {
-      for (byte i = 0; i < MAX_NMEA_CLIENTS; i++) {
-        if (!TCPClient[0][i] || !TCPClient[0][i].connected()) {
-          if (TCPClient[0][i]) TCPClient[0][i].stop();
-          TCPClient[0][i] = server[0]->available();
-          continue;
-        }
+  if (server[0]->hasClient())
+  {
+    for (byte i = 0; i < MAX_NMEA_CLIENTS; i++) {
+      if (!TCPClient[0][i] || !TCPClient[0][i].connected()) {
+        if (TCPClient[0][i]) TCPClient[0][i].stop();
+        TCPClient[0][i] = server[0]->available();
+        continue;
       }
-      WiFiClient TmpserverClient = server[0]->available();
-      TmpserverClient.stop();
     }
-  //}
+    WiFiClient TmpserverClient = server[0]->available();
+    TmpserverClient.stop();
+  }
 
   // Checking if Fake-Mode is activated (deactivating serial-wifi-bridging)
-  if (preferences.getInt("fakenmea", 0)==1||preferences.getInt("fakedl90", 0)==1)
+  if (preferences.getInt("fakenmea", 0) == 1 || preferences.getInt("fakedl90", 0) == 1)
   {
-  // Global delay for both NMEA and GDL90 in Fake-Mode
-  delay(400);
+    // Global delay for both NMEA and GDL90 in Fake-Mode
+    delay(400);
 
-	// Fakecode for NMEA
-	if (preferences.getInt("fakenmea", 0)==1)
-	{
-		  // Simple faking of an static $GPRMC
+    // Fakecode for NMEA
+    if (preferences.getInt("fakenmea", 0) == 1)
+    {
+      // Simple faking of an static $GPRMC
       for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
       {
         if (TCPClient[0][cln])
-        TCPClient[0][cln].println("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
+          TCPClient[0][cln].println("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
       }
-     extractdata("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
-	}
-	
-	// Fakecode for GDL90
-	if (preferences.getInt("fakegdl90", 0)==1)
-	{
-		// removed in this release
-	}
-		    
-	  
+      extractdata("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
+    }
+
+    // Fakecode for GDL90
+    if (preferences.getInt("fakegdl90", 0) == 1)
+    {
+      // removed in this release
+    }
+
+
   } else
   {
-	  // No simulation, doing real serial-wifi-bridging
-	 // for (int num = 0; num < NUM_COM ; num++)
-	  // {
-		if (COM[0] != NULL)
-		{
-		  if (COM[0]->available())
-		  {
-			while (COM[0]->available())
-			{
-			  buf2[0][i2[0]] = COM[0]->read();
-			  if (i2[0] < bufferSize - 1) i2[0]++;
-			}
-
-      // Debug received Data to serial
-      if (debug>1)
+    // No simulation, doing real serial-wifi-bridging
+    if (COM[0] != NULL)
+    {
+      if (COM[0]->available())
       {
-        Serial.println("Full received data:"); 
-        Serial.write(buf2[0],i2[0]);
-      }
-      
-      // Put received Data to String for interpreting
-        int serialcount=0;
+        while (COM[0]->available())
+        {
+          buf2[0][i2[0]] = COM[0]->read();
+          if (i2[0] < bufferSize - 1) i2[0]++;
+        }
+
+        // Debug received Data to serial
+        if (debug > 1)
+        {
+          Serial.println("Full received data:");
+          Serial.write(buf2[0], i2[0]);
+        }
+
+        // Put received Data to String for interpreting
+        int serialcount = 0;
         while (serialcount < i2[0])
         {
           // Check for Carriage return, If yes=Break string and push to interpreter
-          if (buf2[0][serialcount]==10)
+          if (buf2[0][serialcount] == 10)
           {
-             if (debug>1)
-             {
-                 Serial.print("Separated message:");
-                 Serial.println(inserial);     
-             }
-             extractdata(inserial); // Push data to interpreter
-             inserial=""; // New empty string after new line
-          } 
+            if (debug > 1)
+            {
+              Serial.print("Separated message:");
+              Serial.println(inserial);
+            }
+            extractdata(inserial); // Push data to interpreter
+            inserial = ""; // New empty string after new line
+          }
           else
           {
-            inserial +=(char) buf2[0][serialcount];   // Add data to String, ir not CR
+            inserial += (char) buf2[0][serialcount];  // Add data to String, ir not CR
           }
-          serialcount++; 
+          serialcount++;
         }
 
-			
-			for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
-			{
-			  if (TCPClient[0][cln])
-				TCPClient[0][cln].write(buf2[0], i2[0]);
-			}
-			i2[0] = 0;
-		  }
-		}
-	 // }
+        for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
+        {
+          if (TCPClient[0][cln])
+            TCPClient[0][cln].write(buf2[0], i2[0]);
+        }
+        i2[0] = 0;
+      }
+    }
   }
 }
