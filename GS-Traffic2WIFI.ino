@@ -1,8 +1,6 @@
-// Changelog Softwareversion 1.9: Added Webserver for Status und Config, Added basic tweaks for Faking GDL90 and NMEA (no Code for faking GDL90 included)
+// Changelog Softwareversion 2.0: Added Webserver for Status und Config, Added basic tweaks for Faking GDL90 and NMEA (no Code for faking GDL90 included)
 // Known issues:
-//    - General: human-readable status is not fully implemented
 //    - Webconfig: Resetsettings does soemtimes not work with some browsers, reloading the page will solve the issure.
-//    - Webconfig: Status-Page has some scrolling-issues
 // Changelog Softwareversion 1.1: Tweak for disabling default-gateway
 // Changelog Softwareversion 1.0: First stable version - airborne tested :)
 // Instructions for Resettings: Put PIN19 to GND at Startup, after a reboot defaults are restores
@@ -41,7 +39,8 @@ WiFiUDP udp;
 char ssid[50];
 char wpakey[50];
 uint8_t chipid[6];
-String gprmc;
+String gprmc="";
+int extractstream=0;
 
 
 HardwareSerial* COM[NUM_COM] = {&Serial};
@@ -88,8 +87,10 @@ void extractdata(String nmeax)
   {
     int inmeaa = 0;
     gprmc = "";
+    String msg = nmeaa;
     while (nmeaa != NULL)
     {
+      msg=nmeaa;
       if (inmeaa == 1)
       {
         gprmc += "{\"t\":\"$GPRMC\",\"p\":\"Time of message\",";
@@ -100,10 +101,17 @@ void extractdata(String nmeax)
         }
         gprmc += "\",";
         gprmc += "\"h\":\"";
-        if (nmeaa != ",")
+        if (msg != "")
         {
-          gprmc += nmeaa;
-          gprmc += " UTC";
+        gprmc += nmeaa[0];
+        gprmc += nmeaa[1];
+        gprmc += ":";
+        gprmc += nmeaa[2];
+        gprmc += nmeaa[3];
+        gprmc += ":";
+        gprmc += nmeaa[4];
+        gprmc += nmeaa[5];
+        gprmc += " UTC";
         }
         gprmc += "\"},";
       }
@@ -114,7 +122,7 @@ void extractdata(String nmeax)
         gprmc += nmeaa;
         gprmc += "\",";
         gprmc += "\"h\":\"";
-        if (nmeaa == "A")
+        if (msg == "A")
         {
           gprmc += "VALID";
         } else
@@ -170,8 +178,12 @@ void extractdata(String nmeax)
         gprmc += nmeaa;
         gprmc += "\",";
         gprmc += "\"h\":\"";
+        if (msg != "")
+        {
         gprmc += nmeaa;
-        gprmc += "kts\"},";
+        gprmc += " kts";
+        }
+        gprmc += "\"},";
       }
       if (inmeaa == 9)
       {
@@ -180,6 +192,8 @@ void extractdata(String nmeax)
         gprmc += nmeaa;
         gprmc += "\",";
         gprmc += "\"h\":\"";
+        if (msg != "")
+        {
         gprmc += nmeaa[4];
         gprmc += nmeaa[5];
         gprmc += "/";
@@ -188,6 +202,7 @@ void extractdata(String nmeax)
         gprmc += "/";
         gprmc += nmeaa[0];
         gprmc += nmeaa[1];
+        }
         gprmc += "\"}";
       }
 
@@ -216,6 +231,7 @@ void defaultsettings()
   preferences.clear();
   preferences.putString("ssid", tmpssid);
   preferences.putString("wpakey", tmpwpakey);
+  preferences.putInt("extractstream", 0);
   preferences.putInt("defgw", 0);
   preferences.putInt("redpw", 0);
   preferences.putInt("baudrate", 19200);
@@ -240,6 +256,13 @@ void applysettings()
   preferences.putInt("baudrate", webserver.arg("baudrate").toInt());
   preferences.putInt("tcpport", webserver.arg("tcpport").toInt());
   preferences.putInt("udpport", webserver.arg("udpport").toInt());
+  if (webserver.arg("extractstream") == "on")
+  {
+    preferences.putInt("extractstream", 1);
+  } else
+  {
+    preferences.putInt("extractstream", 0);
+  }
   if (webserver.arg("defgw") == "on")
   {
     preferences.putInt("defgw", 1);
@@ -281,7 +304,7 @@ void sendjson() {
 
   String response = "{";
   response += "\"version\":\"";
-  response += "1.9a BETA";
+  response += "2.0";
 
   char mac[50] = "";
   esp_efuse_read_mac(chipid);
@@ -296,7 +319,10 @@ void sendjson() {
   response += "\",\"wpakey\":\"";
   response += preferences.getString("wpakey", "");
 
-  response += "\",\"defgw\":";
+  response += "\",\"extractstream\":";
+  response += preferences.getInt("extractstream", 0);
+
+  response += ",\"defgw\":";
   response += preferences.getInt("defgw", 0);
 
   response += ",\"redpw\":";
@@ -318,7 +344,13 @@ void sendjson() {
   response += preferences.getInt("fakegdl90", 0);
 
   response += ",\"cap\":[";
-  response += gprmc;
+  if (gprmc=="")
+  {    
+       gprmc += "{\"t\":\"\",\"p\":\"\",\"v\":\"\",\"h\":\"\"}"; // Dummy
+  } else
+  {
+      response += gprmc;
+  }
   response += "]";
 
   response += "}";
@@ -395,6 +427,12 @@ void setup() {
     tcpip_adapter_dhcps_option(TCPIP_ADAPTER_OP_SET, TCPIP_ADAPTER_ROUTER_SOLICITATION_ADDRESS, &val, sizeof(dhcps_offer_t));
   }
 
+  if (preferences.getInt("extractstream", 0) == 1)
+  {
+    extractstream=1;
+  }
+
+
   // Starting Wifi
   WiFi.mode(WIFI_AP);
   WiFi.softAP(ssid, wpakey);
@@ -426,9 +464,6 @@ void setup() {
   });
   webserver.on("/mini-default.min.css", []() {
     webserver.send(200, "text/css", htmlcss);
-  });
-  webserver.on("/gsold.json", []() {
-    webserver.send(200, "text/plain", htmljson);
   });
   webserver.on(F("/gs.json"), HTTP_GET, sendjson);
   webserver.on(F("/resetsettings"), HTTP_GET, defaultsettings);
@@ -471,7 +506,10 @@ void loop()
         if (TCPClient[0][cln])
           TCPClient[0][cln].println("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
       }
-      extractdata("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
+      if (extractstream==1) // Extract data vom Stream if option is turned on
+      {
+          extractdata("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
+      }
     }
 
     // Fakecode for GDL90
@@ -501,26 +539,29 @@ void loop()
           Serial.write(buf2[0], i2[0]);
         }
 
-        // Put received Data to String for interpreting
-        int serialcount = 0;
-        while (serialcount < i2[0])
+        if (extractstream==1) // Extract data vom Stream if option is turned on
         {
-          // Check for Carriage return, If yes=Break string and push to interpreter
-          if (buf2[0][serialcount] == 10)
-          {
-            if (debug > 1)
-            {
-              Serial.print("Separated message:");
-              Serial.println(inserial);
-            }
-            extractdata(inserial); // Push data to interpreter
-            inserial = ""; // New empty string after new line
-          }
-          else
-          {
-            inserial += (char) buf2[0][serialcount];  // Add data to String, ir not CR
-          }
-          serialcount++;
+              // Put received Data to String for interpreting
+              int serialcount = 0;
+              while (serialcount < i2[0])
+              {
+                // Check for Carriage return, If yes=Break string and push to interpreter
+                if (buf2[0][serialcount] == 10)
+                {
+                  if (debug > 1)
+                  {
+                    Serial.print("Separated message:");
+                    Serial.println(inserial);
+                  }
+                  extractdata(inserial); // Push data to interpreter
+                  inserial = ""; // New empty string after new line
+                }
+                else
+                {
+                  inserial += (char) buf2[0][serialcount];  // Add data to String, ir not CR
+                }
+                serialcount++;
+              }
         }
 
         for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
