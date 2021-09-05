@@ -1,6 +1,7 @@
-// Changelog Softwareversion 2.0: Added Webserver for Status und Config, Added basic tweaks for Faking GDL90 and NMEA (no Code for faking GDL90 included)
+// Changelog Softwareversion 2.1: Added extracting data from $gpgsa and $pgrmz messages
 // Known issues:
 //    - Webconfig: Resetsettings does soemtimes not work with some browsers, reloading the page will solve the issure.
+// Changelog Softwareversion 2.0: Added Webserver for Status und Config, Added basic tweaks for Faking GDL90 and NMEA (no Code for faking GDL90 included)
 // Changelog Softwareversion 1.1: Tweak for disabling default-gateway
 // Changelog Softwareversion 1.0: First stable version - airborne tested :)
 // Instructions for Resettings: Put PIN19 to GND at Startup, after a reboot defaults are restores
@@ -40,6 +41,8 @@ char ssid[50];
 char wpakey[50];
 uint8_t chipid[6];
 String gprmc="";
+String gpgsa="";
+String pgrmz="";
 int extractstream=0;
 
 
@@ -203,7 +206,7 @@ void extractdata(String nmeax)
         gprmc += nmeaa[0];
         gprmc += nmeaa[1];
         }
-        gprmc += "\"}";
+        gprmc += "\"},";
       }
 
       nmeaa = strsep(&bufptr, ",");
@@ -213,10 +216,173 @@ void extractdata(String nmeax)
     // Debug full string to Serial
     if (debug > 0)
     {
-      Serial.print("Result of extracting: ");
+      Serial.print("Result of extracting $GPRMC: ");
       Serial.println(gprmc);
     }
   }
+
+  // Extract Data, if Message is $gpgsa
+  if (messagetype == "$GPGSA")
+  {
+    int inmeaa = 0;
+    gpgsa = "";
+    String msg = nmeaa;
+    while (nmeaa != NULL)
+    {
+      msg=nmeaa;
+      if (inmeaa == 1)
+      {
+        gpgsa += "{\"t\":\"$GPGSA\",\"p\":\"Fixmode\",";
+        gpgsa += "\"v\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\",";
+        gpgsa += "\"h\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\"},";
+      }
+
+      if (inmeaa == 2)
+      {
+        gpgsa += "{\"t\":\"$GPGSA\",\"p\":\"Fix\",";
+        gpgsa += "\"v\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\",";
+        gpgsa += "\"h\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\"},";
+      }  
+
+    if (inmeaa == 3)
+      {
+        gpgsa += "{\"t\":\"$GPGSA\",\"p\":\"GPS Satelites\",";
+        gpgsa += "\"v\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\",";
+        gpgsa += "\"h\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\"},";
+      }  
+
+    if (inmeaa == 15)
+      {
+        gpgsa += "{\"t\":\"$GPGSA\",\"p\":\"Position dilution of precision\",";
+        gpgsa += "\"v\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\",";
+        gpgsa += "\"h\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\"},";
+      }  
+
+    if (inmeaa == 16)
+      {
+        gpgsa += "{\"t\":\"$GPGSA\",\"p\":\"Horizontal dilution of precision\",";
+        gpgsa += "\"v\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\",";
+        gpgsa += "\"h\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\"},";
+      }  
+
+    if (inmeaa == 17)
+      {
+        gpgsa += "{\"t\":\"$GPGSA\",\"p\":\"Vertical dilution of precision\",";
+        gpgsa += "\"v\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\",";
+        gpgsa += "\"h\":\"";
+        if (nmeaa != ",")
+        {
+          gpgsa += nmeaa;
+        }
+        gpgsa += "\"},";
+      }  
+
+    
+      nmeaa = strsep(&bufptr, ",");
+
+      inmeaa++;
+    }
+    // Debug full string to Serial
+    if (debug > 0)
+    {
+      Serial.print("Result of extracting $GPGSA: ");
+      Serial.println(gpgsa);
+    }
+  }
+
+ // Extract Data, if Message is $pgrmz
+  if (messagetype == "$PGRMZ")
+  {
+    int inmeaa = 0;
+    pgrmz = "";
+    String msg = nmeaa;
+    while (nmeaa != NULL)
+    {
+      msg=nmeaa;
+      if (inmeaa == 1)
+      {
+        pgrmz += "{\"t\":\"$PGRMZ\",\"p\":\"Altitude\",";
+        pgrmz += "\"v\":\"";
+        if (nmeaa != ",")
+        {
+          pgrmz += nmeaa;
+        }
+        pgrmz += "\",";
+        pgrmz += "\"h\":\"";
+        if (nmeaa != ",")
+        {
+          pgrmz += nmeaa;
+        }
+        pgrmz += "ft\"},"; 
+      }
+    
+      nmeaa = strsep(&bufptr, ",");
+
+      inmeaa++;
+    }
+    // Debug full string to Serial
+    if (debug > 0)
+    {
+      Serial.print("Result of extracting $PGRMZ: ");
+      Serial.println(pgrmz);
+    }
+  }
+  
 }
 
 // Reset to "Default-Settings"
@@ -304,7 +470,7 @@ void sendjson() {
 
   String response = "{";
   response += "\"version\":\"";
-  response += "2.0";
+  response += "2.1";
 
   char mac[50] = "";
   esp_efuse_read_mac(chipid);
@@ -344,13 +510,13 @@ void sendjson() {
   response += preferences.getInt("fakegdl90", 0);
 
   response += ",\"cap\":[";
-  if (gprmc=="")
-  {    
-       gprmc += "{\"t\":\"\",\"p\":\"\",\"v\":\"\",\"h\":\"\"}"; // Dummy
-  } else
-  {
-      response += gprmc;
-  }
+  response += gprmc;
+  response += gpgsa;
+  response += pgrmz;  
+
+  response += "{\"t\":\"\",\"p\":\"\",\"v\":\"\",\"h\":\"\"}"; // Dummy as placeholder
+
+  
   response += "]";
 
   response += "}";
@@ -500,15 +666,22 @@ void loop()
     // Fakecode for NMEA
     if (preferences.getInt("fakenmea", 0) == 1)
     {
-      // Simple faking of an static $GPRMC
+      // Simple faking of an static messages
       for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
       {
         if (TCPClient[0][cln])
           TCPClient[0][cln].println("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
+          TCPClient[0][cln].println("$GPGSA,A,3,10,16,18,26,,,,,,,,,4.56,3.60,2.80*01"); //Fake-GPGSA
+          TCPClient[0][cln].println("$PGRMZ,137,F,2*3F"); //Fake-PGRMZ
       }
       if (extractstream==1) // Extract data vom Stream if option is turned on
       {
           extractdata("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
+          delay(5);
+          extractdata("$GPGSA,A,3,10,16,18,26,,,,,,,,,4.56,3.60,2.80*01"); //Fake-GPGSA
+          delay(5);
+          extractdata("$PGRMZ,137,F,2*3F"); //Fake-PGRMZ
+
       }
     }
 

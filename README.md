@@ -3,6 +3,9 @@ GS-Traffic is a serial-wife-bridge with some specific features for NMEA-/Flarm-d
 GS-Traffic2Wifi Software 1.0 and 1.1 was a stripped down fork of [ESP32-Serial-Bridge](https://github.com/AlphaLima/ESP32-Serial-Bridge). With Version 2.0 there are a lot of extensions and the codebase is reworked in most parts. Version 2.0 offers a WebUI for configuring the device. GS-Traffic2WIFI is the default Soft-/Firmware of the GS-Traffic2Wifi-Kits, available on [gs-avionik.de](https://www.gs-avionik.de) but will also work with any ESP32-Module with an attached TTL/RS232-Converter on GPIO21 and GPIO01. Since Version 2.0 RPIO19 is used as a factory-reset when connected to GND and startup.
 
 ## Versions
+Version 2.1 is now stable and offers some additional features:
+- Added extracting data from $GPGSA and $PGRMZ messages
+
 Version 2.0 is now stable and offers some additional features like:
 - Webgui (http://192.168.1.1) for configuring GS-Traffic2WIFI
 - Status pages and basic code for extracting and interpreting received NMEA-data
@@ -20,7 +23,7 @@ The generated SSID and WIFI-Key is part of the unique MAC of the ESP32. The SSID
 
 
 ## Instructions for installing on blank device (or updating from Version 1.1)
-On Windows, MacOS and Linux use can use [ESPHOME-Flasher] (https://github.com/esphome/esphome-flasher/releases/) for loading the firmware. Just connect the ESP32 via Micro-USB to your computer, start the ESPHOME-Flaser, select the COM-Port and select the latest binary of GS-Traffic2WIFI (GS-Traffic2WIFI-version2.0.bin)
+On Windows, MacOS and Linux use can use [ESPHOME-Flasher] (https://github.com/esphome/esphome-flasher/releases/) for loading the firmware. J^ust connect the ESP32 via Micro-USB to your computer, start the ESPHOME-Flaser, select the COM-Port and select the latest binary of GS-Traffic2WIFI (GS-Traffic2WIFI-version2.1.bin)
 
 ## Media
 You can see some videos of GS-Traffic2WIFI on my [Youtube-Channel](https://www.youtube.com/channel/UCv42FT93emRBfOEssAWbdOw)
