@@ -1,6 +1,10 @@
-// Changelog Softwareversion 2.1: Added extracting data from $gpgsa and $pgrmz messages
+// Changelog Softwareversion 2.2: Added experimental Client-Mode for Wifi and TCP-Bridging
+//                                Added Dualcolor LED on GPIO 18 and 5 for Status of the module and/or Traffic-Warning
+//                                Added baud rates: 115.200 and 230.400
 // Known issues:
 //    - Webconfig: Resetsettings does soemtimes not work with some browsers, reloading the page will solve the issure.
+// Changelog Softwareversion 2.1: Added extracting data from $gpgsa and $pgrmz messages
+// Known issues:
 // Changelog Softwareversion 2.0: Added Webserver for Status und Config, Added basic tweaks for Faking GDL90 and NMEA (no Code for faking GDL90 included)
 // Changelog Softwareversion 1.1: Tweak for disabling default-gateway
 // Changelog Softwareversion 1.0: First stable version - airborne tested :)
@@ -15,8 +19,11 @@ IPAddress gateway(192, 168, 1, 1);
 IPAddress netmask(255, 255, 255, 0);
 const char * udpAddress = "192.168.1.255";
 
-// Define Resetpin
+// Define additional PINs
 #define RESETPIN 19
+#define LEDPINGREEN 18
+#define LEDPINRED 5
+
 
 // Define Softserials
 #define NUM_COM 1
@@ -43,7 +50,9 @@ uint8_t chipid[6];
 String gprmc="";
 String gpgsa="";
 String pgrmz="";
+String pflau="";
 int extractstream=0;
+int trafficwarnled=0;
 
 
 HardwareSerial* COM[NUM_COM] = {&Serial};
@@ -382,6 +391,58 @@ void extractdata(String nmeax)
       Serial.println(pgrmz);
     }
   }
+
+ // Extract Data, if Message is $pflau
+  if (messagetype == "$PFLAU")
+  {
+    int inmeaa = 0;
+    pflau = "";
+    String msg = nmeaa;
+    while (nmeaa != NULL)
+    {
+      msg=nmeaa;
+      if (inmeaa == 5)
+      {
+        pflau += "{\"t\":\"$PFLAU\",\"p\":\"Alarmlevel\",";
+        pflau += "\"v\":\"";
+        if (nmeaa != ",")
+        {
+          pflau += nmeaa;
+        }
+        pflau += "\",";
+        pflau += "\"h\":\"";
+        if (nmeaa != ",")
+        {
+          pflau += nmeaa;
+
+          // Generate Warning to LED based on configuation
+          if (trafficwarnled>0)
+          {
+            if (msg.toInt()>=trafficwarnled)
+            {
+                 digitalWrite(LEDPINRED, HIGH);
+            } else
+            {
+                 digitalWrite(LEDPINRED, LOW);
+            }
+             
+          }
+        }
+        pflau += "\"},"; 
+      }
+    
+      nmeaa = strsep(&bufptr, ",");
+
+      inmeaa++;
+    }
+    // Debug full string to Serial
+    if (debug > 0)
+    {
+      Serial.print("Result of extracting PFLAU: ");
+      Serial.println(pflau);
+    }
+  }
+  
   
 }
 
@@ -405,6 +466,8 @@ void defaultsettings()
   preferences.putInt("udpport", 4000);
   preferences.putInt("fakenmea", 0);
   preferences.putInt("fakegdl90", 0);
+  preferences.putInt("clientmode", 0);
+  preferences.putInt("trafficwarnled", 0);
   preferences.end();
   webserver.send(200, "text/html", "Settings restored to default...rebooting..." );
   delay(500);
@@ -422,6 +485,7 @@ void applysettings()
   preferences.putInt("baudrate", webserver.arg("baudrate").toInt());
   preferences.putInt("tcpport", webserver.arg("tcpport").toInt());
   preferences.putInt("udpport", webserver.arg("udpport").toInt());
+  preferences.putInt("trafficwarnled", webserver.arg("trafficwarnled").toInt());
   if (webserver.arg("extractstream") == "on")
   {
     preferences.putInt("extractstream", 1);
@@ -457,8 +521,16 @@ void applysettings()
   {
     preferences.putInt("fakegdl90", 0);
   }
+  if (webserver.arg("clientmode") == "on")
+  {
+    preferences.putInt("clientmode", 1);
+  } else
+  {
+    preferences.putInt("clientmode", 0);
+  }
+  
   preferences.end();
-  webserver.send(200, "text/html", "Settings saved...rebooting..." );
+  webserver.send(200, "text/html", "<html><head><meta http-equiv=refresh content=\"2;url=http://192.168.1.1\"/></head><body>Settings saved...rebooting...</body></html>" );
   delay(500);
   ESP.restart();
 }
@@ -470,7 +542,7 @@ void sendjson() {
 
   String response = "{";
   response += "\"version\":\"";
-  response += "2.1";
+  response += "2.2";
 
   char mac[50] = "";
   esp_efuse_read_mac(chipid);
@@ -509,6 +581,12 @@ void sendjson() {
   response += ",\"fakegdl90\":";
   response += preferences.getInt("fakegdl90", 0);
 
+  response += ",\"clientmode\":";
+  response += preferences.getInt("clientmode", 0);
+
+  response += ",\"trafficwarnled\":";
+  response += preferences.getInt("trafficwarnled", 0);
+  
   response += ",\"cap\":[";
   response += gprmc;
   response += gpgsa;
@@ -555,6 +633,20 @@ unsigned int crcCompute(unsigned char *block, unsigned long int length)
 
 void setup() {
   crcInit();
+
+  
+  pinMode(LEDPINGREEN, OUTPUT);
+  pinMode(LEDPINRED, OUTPUT);
+
+  digitalWrite(LEDPINGREEN, HIGH);
+  delay(200);
+  digitalWrite(LEDPINGREEN, LOW);
+  delay(200);
+  digitalWrite(LEDPINRED, HIGH);
+  delay(200);
+  digitalWrite(LEDPINRED, LOW);
+  delay(200);
+
   preferences.begin("GS-Traffic", false);
 
   // Resetting to Defaults, if no SSID is found (ESP32 seems to be blank)
@@ -573,6 +665,9 @@ void setup() {
   if (digitalRead(RESETPIN) == 0)
   {
     Serial.println("Resetting");
+    digitalWrite(LEDPINGREEN, HIGH);
+    digitalWrite(LEDPINRED, HIGH);
+    delay(500);
     defaultsettings();
   }
 
@@ -586,8 +681,8 @@ void setup() {
 
   COM[0]->begin(preferences.getInt("baudrate", 0), SERIAL_PARAM0, SERIAL0_RXPIN, SERIAL0_TXPIN); // Changed to variable Baudrate
 
-  // No Default-GW-Routing, if disabled (default)
-  if (preferences.getInt("defgw", 0) == 0)
+  // No Default-GW-Routing, if disabled (default) and Clientmode is off
+  if ((preferences.getInt("defgw", 0) == 0) && (preferences.getInt("clientmode", 0) == 0))
   {
     uint8_t val = 0;
     tcpip_adapter_dhcps_option(TCPIP_ADAPTER_OP_SET, TCPIP_ADAPTER_ROUTER_SOLICITATION_ADDRESS, &val, sizeof(dhcps_offer_t));
@@ -598,20 +693,41 @@ void setup() {
     extractstream=1;
   }
 
+  if (preferences.getInt("trafficwarnled", 0) == 1)
+  {
+    trafficwarnled=preferences.getInt("trafficwarnled", 0);
+  }
 
-  // Starting Wifi
+  if (preferences.getInt("clientmode", 0) == 0)
+  {
+  // Starting Wifi as AP-Mode
   WiFi.mode(WIFI_AP);
   WiFi.softAP(ssid, wpakey);
   delay(1000);
   WiFi.softAPConfig(ip, ip, netmask);
-  Serial.println("Wifi started");
+  Serial.println("Wifi started as AP");
   Serial.print(ssid);
   Serial.print("@");
   Serial.print(wpakey);
-
   server[0]->begin(preferences.getInt("tcpport", 0)); //Added variable port instead of initalizing outside setup()
   server[0]->setNoDelay(true);
-
+  } else {
+  // Starting Wifi as Client
+  WiFi.begin(ssid, wpakey);
+  Serial.println("Wifi started as Client");
+  Serial.print(ssid);
+  Serial.print("@");   
+  Serial.print(wpakey);
+  Serial.print(": connecting");
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("");
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());  
+  }
 
 
 
@@ -644,106 +760,143 @@ void loop()
 {
   // Handling Webserver
   webserver.handleClient();
-  if (server[0]->hasClient())
-  {
-    for (byte i = 0; i < MAX_NMEA_CLIENTS; i++) {
-      if (!TCPClient[0][i] || !TCPClient[0][i].connected()) {
-        if (TCPClient[0][i]) TCPClient[0][i].stop();
-        TCPClient[0][i] = server[0]->available();
-        continue;
-      }
-    }
-    WiFiClient TmpserverClient = server[0]->available();
-    TmpserverClient.stop();
-  }
 
-  // Checking if Fake-Mode is activated (deactivating serial-wifi-bridging)
-  if (preferences.getInt("fakenmea", 0) == 1 || preferences.getInt("fakedl90", 0) == 1)
-  {
-    // Global delay for both NMEA and GDL90 in Fake-Mode
-    delay(400);
-
-    // Fakecode for NMEA
-    if (preferences.getInt("fakenmea", 0) == 1)
-    {
-      // Simple faking of an static messages
-      for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
+  // Full code of AP-Mode
+  if (preferences.getInt("clientmode", 0) == 0)
       {
-        if (TCPClient[0][cln])
-          TCPClient[0][cln].println("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
-          TCPClient[0][cln].println("$GPGSA,A,3,10,16,18,26,,,,,,,,,4.56,3.60,2.80*01"); //Fake-GPGSA
-          TCPClient[0][cln].println("$PGRMZ,137,F,2*3F"); //Fake-PGRMZ
-      }
-      if (extractstream==1) // Extract data vom Stream if option is turned on
+      // Handle TCP-Server
+      if (server[0]->hasClient())
       {
-          extractdata("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
-          delay(5);
-          extractdata("$GPGSA,A,3,10,16,18,26,,,,,,,,,4.56,3.60,2.80*01"); //Fake-GPGSA
-          delay(5);
-          extractdata("$PGRMZ,137,F,2*3F"); //Fake-PGRMZ
-
-      }
-    }
-
-    // Fakecode for GDL90
-    if (preferences.getInt("fakegdl90", 0) == 1)
-    {
-      // removed in this release
-    }
-
-
-  } else
-  {
-    // No simulation, doing real serial-wifi-bridging
-    if (COM[0] != NULL)
-    {
-      if (COM[0]->available())
-      {
-        while (COM[0]->available())
-        {
-          buf2[0][i2[0]] = COM[0]->read();
-          if (i2[0] < bufferSize - 1) i2[0]++;
+        for (byte i = 0; i < MAX_NMEA_CLIENTS; i++) {
+          if (!TCPClient[0][i] || !TCPClient[0][i].connected()) {
+            if (TCPClient[0][i]) TCPClient[0][i].stop();
+            TCPClient[0][i] = server[0]->available();
+            continue;
+          }
         }
-
-        // Debug received Data to serial
-        if (debug > 1)
+        WiFiClient TmpserverClient = server[0]->available();
+        TmpserverClient.stop();
+      }
+    
+      // Checking if Fake-Mode is activated (deactivating serial-wifi-bridging)
+      if (preferences.getInt("fakenmea", 0) == 1 || preferences.getInt("fakedl90", 0) == 1)
+      {
+        // Global delay for both NMEA and GDL90 in Fake-Mode
+        delay(400);
+    
+        // Fakecode for NMEA
+        if (preferences.getInt("fakenmea", 0) == 1)
         {
-          Serial.println("Full received data:");
-          Serial.write(buf2[0], i2[0]);
+          // Simple faking of an static messages
+          for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
+          {
+            if (TCPClient[0][cln])
+              TCPClient[0][cln].println("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
+              TCPClient[0][cln].println("$GPGSA,A,3,10,16,18,26,,,,,,,,,4.56,3.60,2.80*01"); //Fake-GPGSA
+              TCPClient[0][cln].println("$PGRMZ,137,F,2*3F"); //Fake-PGRMZ
+          }
+          if (extractstream==1) // Extract data vom Stream if option is turned on
+          {
+              extractdata("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
+              delay(5);
+              extractdata("$GPGSA,A,3,10,16,18,26,,,,,,,,,4.56,3.60,2.80*01"); //Fake-GPGSA
+              delay(5);
+              extractdata("$PGRMZ,137,F,2*3F"); //Fake-PGRMZ
+    
+          }
         }
-
-        if (extractstream==1) // Extract data vom Stream if option is turned on
+    
+        // Fakecode for GDL90
+        if (preferences.getInt("fakegdl90", 0) == 1)
         {
-              // Put received Data to String for interpreting
-              int serialcount = 0;
-              while (serialcount < i2[0])
-              {
-                // Check for Carriage return, If yes=Break string and push to interpreter
-                if (buf2[0][serialcount] == 10)
-                {
-                  if (debug > 1)
+          // removed in this release
+        }
+    
+    
+      } else
+      {
+        // No simulation, doing real serial-wifi-bridging
+        if (COM[0] != NULL)
+        {
+          if (COM[0]->available())
+          {
+            while (COM[0]->available())
+            {
+              buf2[0][i2[0]] = COM[0]->read();
+              if (i2[0] < bufferSize - 1) i2[0]++;
+            }
+    
+            // Debug received Data to serial
+            if (debug > 1)
+            {
+              Serial.println("Full received data:");
+              Serial.write(buf2[0], i2[0]);
+            }
+    
+            if (extractstream==1) // Extract data vom Stream if option is turned on
+            {
+                  // Put received Data to String for interpreting
+                  int serialcount = 0;
+                  while (serialcount < i2[0])
                   {
-                    Serial.print("Separated message:");
-                    Serial.println(inserial);
+                    // Check for Carriage return, If yes=Break string and push to interpreter
+                    if (buf2[0][serialcount] == 10)
+                    {
+                      if (debug > 1)
+                      {
+                        Serial.print("Separated message:");
+                        Serial.println(inserial);
+                      }
+                      extractdata(inserial); // Push data to interpreter
+                      inserial = ""; // New empty string after new line
+                    }
+                    else
+                    {
+                      inserial += (char) buf2[0][serialcount];  // Add data to String, ir not CR
+                    }
+                    serialcount++;
                   }
-                  extractdata(inserial); // Push data to interpreter
-                  inserial = ""; // New empty string after new line
-                }
-                else
-                {
-                  inserial += (char) buf2[0][serialcount];  // Add data to String, ir not CR
-                }
-                serialcount++;
-              }
+            }
+    
+            for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
+            {
+              if (TCPClient[0][cln])
+                TCPClient[0][cln].write(buf2[0], i2[0]);
+            }
+            i2[0] = 0;
+          }
         }
-
-        for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
-        {
-          if (TCPClient[0][cln])
-            TCPClient[0][cln].write(buf2[0], i2[0]);
-        }
-        i2[0] = 0;
       }
-    }
+  } else {
+  
+            // Code for Clientmode
+              const uint16_t port = preferences.getInt("tcpport", 0); // Use the configurable TCP-Port in Clientmode, too
+              const char * host = "192.168.1.1";
+              WiFiClient client;
+              if (!client.connect(host, port)) {
+                  Serial.println("Connection failed.");
+                  return;
+              }
+            int maxloops = 0;
+          
+            //wait for the server's reply to become available
+            while (!client.available() && maxloops < 1000)
+            {
+              maxloops++;
+            }
+            if (client.available() > 0)
+            {
+             if (debug > 1)
+            {
+                Serial.println(client.readString());
+            }
+             // Sending received data on serial
+             COM[0]->print(client.readString());
+
+            }
+            client.stop();
   }
+  
+
+
 }
