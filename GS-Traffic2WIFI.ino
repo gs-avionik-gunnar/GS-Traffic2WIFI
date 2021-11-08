@@ -1,8 +1,12 @@
+// Changelog Softwareversion 2.3: Added Feature to update Firmware via Webgui
+//                                Added tweaks for future hardware-versions
+//                                Added tooltips in WebUI for all config-options
+//                                Increased maximum of simultaneous NMEA-Clients to 10 devices
+// Known issues:
+//    - Webconfig: Resetsettings does soemtimes not work with some browsers, reloading the page will solve the issure.
 // Changelog Softwareversion 2.2: Added experimental Client-Mode for Wifi and TCP-Bridging
 //                                Added Dualcolor LED on GPIO 18 and 5 for Status of the module and/or Traffic-Warning
 //                                Added baud rates: 115.200 and 230.400
-// Known issues:
-//    - Webconfig: Resetsettings does soemtimes not work with some browsers, reloading the page will solve the issure.
 // Changelog Softwareversion 2.1: Added extracting data from $gpgsa and $pgrmz messages
 // Known issues:
 // Changelog Softwareversion 2.0: Added Webserver for Status und Config, Added basic tweaks for Faking GDL90 and NMEA (no Code for faking GDL90 included)
@@ -19,25 +23,26 @@ IPAddress gateway(192, 168, 1, 1);
 IPAddress netmask(255, 255, 255, 0);
 const char * udpAddress = "192.168.1.255";
 
-// Define additional PINs
+// Define PINs on ESP32
+#define HWTYPEPIN 17
 #define RESETPIN 19
 #define LEDPINGREEN 18
 #define LEDPINRED 5
-
-
-// Define Softserials
-#define NUM_COM 1
-#define SERIAL_PARAM0 SERIAL_8N1
 #define SERIAL0_RXPIN 21
 #define SERIAL0_TXPIN 1
+
+// Define Softserial-Parameters
+#define NUM_COM 1
+#define SERIAL_PARAM0 SERIAL_8N1
 #define bufferSize 1024
-#define MAX_NMEA_CLIENTS 6
+#define MAX_NMEA_CLIENTS 10
 
 #include <esp_wifi.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <WiFiClient.h>
 #include <WebServer.h>
+#include <Update.h>
 #include <Preferences.h>
 #include "GS-Traffic2WIFI-webservercontent.h"
 
@@ -53,6 +58,7 @@ String pgrmz="";
 String pflau="";
 int extractstream=0;
 int trafficwarnled=0;
+String hwtype="original HW 1.0 or selfmade";
 
 
 HardwareSerial* COM[NUM_COM] = {&Serial};
@@ -76,6 +82,12 @@ uint16_t iBT = 0;
 // Defining Serial-indata-String
 String inserial;
 
+// Sending jquery.min.js to Client
+void onJavaScript(void) {
+    webserver.setContentLength(jquery_min_js_v3_2_1_gz_len);
+    webserver.sendHeader(F("Content-Encoding"), F("gzip"));
+    webserver.send_P(200, "text/javascript", jquery_min_js_v3_2_1_gz, jquery_min_js_v3_2_1_gz_len);
+}
 
 // Extracting and saving Parts of NMEA-Data
 void extractdata(String nmeax)
@@ -542,7 +554,7 @@ void sendjson() {
 
   String response = "{";
   response += "\"version\":\"";
-  response += "2.2";
+  response += "2.3";
 
   char mac[50] = "";
   esp_efuse_read_mac(chipid);
@@ -550,6 +562,9 @@ void sendjson() {
 
   response += "\",\"mac\":\"";
   response += mac;
+
+  response += "\",\"hwversion\":\"";
+  response += hwtype;
 
   response += "\",\"ssid\":\"";
   response += preferences.getString("ssid", "");
@@ -586,7 +601,7 @@ void sendjson() {
 
   response += ",\"trafficwarnled\":";
   response += preferences.getInt("trafficwarnled", 0);
-  
+
   response += ",\"cap\":[";
   response += gprmc;
   response += gpgsa;
@@ -633,6 +648,15 @@ unsigned int crcCompute(unsigned char *block, unsigned long int length)
 
 void setup() {
   crcInit();
+
+  // Checking Resetpin by Hardware, if DOWN (GND), HW-Version is 2.0
+  pinMode(HWTYPEPIN, INPUT);
+  pinMode(HWTYPEPIN, INPUT_PULLUP);
+  if (digitalRead(HWTYPEPIN) == 0)
+  {
+    hwtype="2.0";
+  }
+
 
   
   pinMode(LEDPINGREEN, OUTPUT);
@@ -728,9 +752,6 @@ void setup() {
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());  
   }
-
-
-
   // Reducing Wifi-Power if enabled (not default)
   if (preferences.getInt("redpw", 0) == 1)
   {
@@ -750,6 +771,36 @@ void setup() {
   webserver.on(F("/gs.json"), HTTP_GET, sendjson);
   webserver.on(F("/resetsettings"), HTTP_GET, defaultsettings);
   webserver.on(F("/savesettings"), HTTP_GET, applysettings);
+  webserver.on("/jquery.min.js", HTTP_GET, onJavaScript);
+  
+  webserver.on("/update", HTTP_POST, []() {
+    Serial.println("Webserver.on(/update)");
+    webserver.sendHeader("Connection", "close");
+    webserver.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+    ESP.restart();
+  }, []() {
+    HTTPUpload& upload = webserver.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      Serial.printf("Update: %s\n", upload.filename.c_str());
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) {
+        Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+      } else {
+        Update.printError(Serial);
+      }
+    }
+  });
+
+
+
+
 
   // Starting Webserver
   webserver.begin(80);

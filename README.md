@@ -3,6 +3,12 @@ GS-Traffic is a serial-wife-bridge with some specific features for NMEA-/Flarm-d
 GS-Traffic2Wifi Software 1.0 and 1.1 was a stripped down fork of [ESP32-Serial-Bridge](https://github.com/AlphaLima/ESP32-Serial-Bridge). With Version 2.0 there are a lot of extensions and the codebase is reworked in most parts. Version 2.0 offers a WebUI for configuring the device. GS-Traffic2WIFI is the default Soft-/Firmware of the GS-Traffic2Wifi-Kits, available on [gs-avionik.de](https://www.gs-avionik.de) but will also work with any ESP32-Module with an attached TTL/RS232-Converter on GPIO21 and GPIO01. Since Version 2.0 RPIO19 is used as a factory-reset when connected to GND and startup.
 
 ## Versions
+Version 2.3 is now stable and offers some additional features:
+- Added Feature to update Firmware via Webgui
+- Added tweaks for future hardware-versions
+- Added tooltips in WebUI for all config-options
+- Increased maximum of simultaneous NMEA-Clients to 10 devices
+
 Version 2.2 is now stable and offers some additional features:
 - Added experimental Client-Mode for Wifi and TCP-Bridging
 - Added code for dualcolor LED on GPIO18 and GPIO5 for status of the module and/or Traffic-Warning (Configurable based on $PFLAU)
@@ -36,4 +42,4 @@ You can see some videos of GS-Traffic2WIFI on my [Youtube-Channel](https://www.y
 
 Feel free to modify and contribute! 
 
-The product uses [Mini-CSS Framework](https://minicss.org) in Web-UI
+The project uses [Mini-CSS Framework](https://minicss.org) and [jquery](https://github.com/jquery/jquery) in Web-UI
