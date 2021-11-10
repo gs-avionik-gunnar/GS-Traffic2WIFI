@@ -1,9 +1,10 @@
+// Changelog Softwareversion 2.3b: Saving settings will sometimes not work due to new Update-Form of 2.3->Fixed
+// Known issues:
+//    - Webconfig: Resetsettings does soemtimes not work with some browsers, reloading the page will solve the issure.
 // Changelog Softwareversion 2.3: Added Feature to update Firmware via Webgui
 //                                Added tweaks for future hardware-versions
 //                                Added tooltips in WebUI for all config-options
 //                                Increased maximum of simultaneous NMEA-Clients to 10 devices
-// Known issues:
-//    - Webconfig: Resetsettings does soemtimes not work with some browsers, reloading the page will solve the issure.
 // Changelog Softwareversion 2.2: Added experimental Client-Mode for Wifi and TCP-Bridging
 //                                Added Dualcolor LED on GPIO 18 and 5 for Status of the module and/or Traffic-Warning
 //                                Added baud rates: 115.200 and 230.400
@@ -554,7 +555,7 @@ void sendjson() {
 
   String response = "{";
   response += "\"version\":\"";
-  response += "2.3";
+  response += "2.3b";
 
   char mac[50] = "";
   esp_efuse_read_mac(chipid);
