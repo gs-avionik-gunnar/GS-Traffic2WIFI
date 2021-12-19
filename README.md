@@ -1,5 +1,5 @@
 # GS-Traffic2WIFI
-GS-Traffic is a serial-wife-bridge with some specific features for NMEA-/Flarm-devices. You can use it for connecting your moving-map-software to your Flarm- or GPS-device.
+GS-Traffic is a serial-wifi-bridge with some specific features for NMEA-/Flarm-devices. You can use it for connecting your moving-map-software to your Flarm- or GPS-device.
 GS-Traffic2Wifi Software 1.0 and 1.1 was a stripped down fork of [ESP32-Serial-Bridge](https://github.com/AlphaLima/ESP32-Serial-Bridge). With Version 2.0 there are a lot of extensions and the codebase is reworked in most parts. Version 2.0 and higher offer a WebUI for configuring the device.
 
 ## Hardware-Compatibility / Used GPIO-Pins
