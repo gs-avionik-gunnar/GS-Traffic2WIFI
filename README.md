@@ -6,12 +6,11 @@ GS-Traffic2Wifi Software 1.0 and 1.1 was a stripped down fork of [ESP32-Serial-B
 GS-Traffic2WIFI is the default Soft-/Firmware of the GS-Traffic2Wifi-Kits, available on [gs-avionik.de](https://www.gs-avionik.de) but will also work with any ESP32-Devkit-Module with an attached TTL/RS232-Converter on GPIO21 and GPIO01.
 Since SW-Version 2.0 RPIO19 is used as a factory-reset when connected to GND and startup.
 Since SW-Version 2.2 there is support added for a dualcolor-LED von GPIO18 and GPIO05 for status and/or Traffic-Warning.
-Hardware-Version is detected by GPIO17. On Selfmade-Hardware as well as GS-Traffic2Wifi-1.0 PCBs GPIO17 is software pulled_up and floating or HIGH. On genuine GS-Traffic2Wifi-2.0 PCBs (will be available in mid 2022) GPIO17 will be connected to GND. Please don't connected GPIO17 to GND when using Selfmade-Hardware or GS-Traffic2Wifi-1.0 PCBs, because layout and used GPIO-Ports will change and the firmware will use different IO-Ports and features.
+Hardware-Version is detected by GPIO12 and GPIO14. On Selfmade-Hardware as well as GS-Traffic2Wifi-1.0 PCBs these Pins are software pulled_up and floating or HIGH. On genuine GS-Traffic2Wifi-2.0 PCBs (will be available in mid 2022) GPIO 12 and GPIO14 will be connected to GND. Please don't connected these PINs to GND when using Selfmade-Hardware or GS-Traffic2Wifi-1.0 PCBs, because layout and used GPIO-Ports will change and the firmware will use different IO-Ports and features.
 ![Schematic](docs/schematic.svg)
 
-
 ## Cases
-You can find example .stl-Files under "case". HW1.0-case_old was the default case for the GS-Traffic2Wifi-1.0 PCB and needs 4x M3x35 screws. HW1.0-case contains the improved case for GS-Traffic2Wifi-1.0 PCB made by a customer. Thanks to Christian, the new case is completly screwless. If you're searching for a case you should use the new version.
+You can find example .stl-Files under "case". HW1.0-case_old was the default case for the GS-Traffic2Wifi-1.0 PCB and needs 4x M3x35 screws. HW1.0-case contains the improved case for GS-Traffic2Wifi-1.0 PCB made by a customer. Thanks to Christian, the new case is completly screwless. If you're searching for a case you should use the new version. You can also find front- and rearplates of the Traffic2WIFIv2 aluminium-cases (Dev-version).
 
 ## Versions
 Version 3.0 DEV is out for testing in BETA-Branch and offers some additional features - use with caution!:
@@ -73,7 +72,7 @@ You can find an [Produktdatenblatt (German)](https://gs-avionik.de/gs-datenblaet
 You can see some videos of GS-Traffic2WIFI on my [Youtube-Channel](https://www.youtube.com/channel/UCv42FT93emRBfOEssAWbdOw)
 
 ##  Known issues of actual Version
-- Currently there are no known issues.
+- Currently alls known issues are solved in the current version.
 
 Feel free to modify and contribute! 
 
