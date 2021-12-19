@@ -14,6 +14,19 @@ Hardware-Version is detected by GPIO17. On Selfmade-Hardware as well as GS-Traff
 You can find example .stl-Files under "case". HW1.0-case_old was the default case for the GS-Traffic2Wifi-1.0 PCB and needs 4x M3x35 screws. HW1.0-case contains the improved case for GS-Traffic2Wifi-1.0 PCB made by a customer. Thanks to Christian, the new case is completly screwless. If you're searching for a case you should use the new version.
 
 ## Versions
+Version 3.0 DEV is out for testing in BETA-Branch and offers some additional features - use with caution!:
+- Fixed: Saving settings will use POST instead of GET for changed parameters
+- Fixed: Resetsettings will now work all the times
+- Fixed: Minor Web-UI Changes for better usability
+- Added: Support for 2.0 Hardware (DEV-Devices)
+- Added: Lot more details in http://192.168,1.1/gs.json for debugging
+- Added: Showing Compile-Date of Firmware in WebUI
+- Added virtual Status-LED in WebUI (Works like the real Status-LED)
+- Added Orange-LED-Out-Warning if no valid Position is avilable, configurable in Web-UI
+- Added New-LED-Bootup-Sequence
+- Added experimental Debug-Mode-Activation via Web-UI (mostly usable on 2.0 Devices)
+- Rerwritten code for Trafficwarn-LED, more Options in Web-UI
+
 Version 2.3b is now stable and offers some additional features:
 - Added Feature to update Firmware via Webgui
 - Added tweaks for future hardware-versions
