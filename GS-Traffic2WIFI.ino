@@ -1,4 +1,7 @@
-// Changelog Softwareversion 3.0 DEV:   Fixed: Saving settings will use POST instead of GET for changed parameters
+// Changelog Softwareversion 3.0 BETA2: Added: Experimental Fake-Mode for Serial-Output is now part of this firmware (replaces dedicated Faker-Firmware for my own development-setup)
+//                                      Fixed: Updatecycles will be 0 in WebUI if update <3.0 and no Default-Settings are loaded
+//                                      Fixed: Changed Update text from Failure to Unknown-State for updates, which are handled very quick
+// Changelog Softwareversion 3.0 BETA:  Fixed: Saving settings will use POST instead of GET for changed parameters
 //                                      Fixed: Resetsettings will now work all the times
 //                                      Fixed: Minor Web-UI Changes for better usability
 //                                      Added: Support for 2.0 Hardware (DEV-Devices)
@@ -96,9 +99,76 @@ uint16_t i2[NUM_COM] = {0};
 uint8_t BTbuf[bufferSize];
 uint16_t iBT = 0;
 
+// Define Fakedata
+float fakestartlat=5412.998;
+float fakestartlong=936.007;
+float fakedmraddisth=20;
+float fakedmraddistv=20;
+float fakedmradbearing=-180;
 
 // Defining Serial-indata-String
 String inserial;
+
+
+int nmea0183_checksum(char *nmea_data)
+{
+    int crc = 0;
+    int i;
+    for (i = 1; i < strlen(nmea_data); i ++) {
+        crc ^= nmea_data[i];
+    }
+    return crc;
+}
+
+void outputfakenmea(char *nmea_data, int mode)
+{
+    if (mode==1) // Serial-Fakemode
+    {
+      COM[0]->print(nmea_data);
+      COM[0]->print("*");
+      COM[0]->println(nmea0183_checksum(nmea_data),HEX);
+    }
+    
+    if (mode==0) // Wifi-Fakemode
+    {
+      for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
+      {
+          if (TCPClient[0][cln])
+          {
+            TCPClient[0][cln].print(nmea_data);
+            TCPClient[0][cln].print("*");
+            TCPClient[0][cln].println(nmea0183_checksum(nmea_data),HEX);
+          }
+      }
+    }
+
+    if (extractstream == 1) // Extract data vom Stream if option is turned on
+    {
+      extractdata(String(nmea_data)+"*"+String(nmea0183_checksum(nmea_data),HEX));
+    }
+    
+}
+
+
+void fakenmea(int mode)
+{
+  fakestartlat=fakestartlat-0.001;
+  fakestartlong=fakestartlong-0.006;
+  fakedmraddisth=fakedmraddisth-0.005;
+  fakedmraddistv=fakedmraddistv-0.01;
+
+  String opstring;
+  opstring="$GPRMC,185726.800,A,";
+  opstring+=String(fakestartlat,3);
+  opstring+=",N,00";
+  opstring+=String(fakestartlong,3);
+  opstring+=",E,43,259,191221,0.0,E,A";
+  
+  outputfakenmea(&opstring[0],mode);
+}
+
+
+
 
 // Sending jquery.min.js to Client
 void onJavaScript(void) {
@@ -493,6 +563,7 @@ void defaultsettings()
   preferences.putInt("tcpport", 2000);
   preferences.putInt("udpport", 4000);
   preferences.putInt("fakenmea", 0);
+  preferences.putInt("fakenmeaserial", 0);
   preferences.putInt("fakegdl90", 0);
   preferences.putInt("clientmode", 0);
   preferences.putInt("trafficwarnled", 0);
@@ -555,6 +626,13 @@ void applysettings()
   {
     preferences.putInt("fakenmea", 0);
   }
+  if (webserver.arg("fakenmeaserial") == "on")
+  {
+    preferences.putInt("fakenmeaserial", 1);
+  } else
+  {
+    preferences.putInt("fakenmeaserial", 0);
+  }
   if (webserver.arg("fakegdl90") == "on")
   {
     preferences.putInt("fakegdl90", 1);
@@ -583,7 +661,7 @@ void sendjson() {
 
   String response = "{";
   response += "\"version\":\"";
-  response += "3.0 DEV";
+  response += "3.0 BETA2";
 
   response += "\",\"compiledate\":\"";
   response += compile_date;
@@ -628,6 +706,9 @@ void sendjson() {
   response += ",\"fakenmea\":";
   response += preferences.getInt("fakenmea", 0);
 
+  response += ",\"fakenmeaserial\":";
+  response += preferences.getInt("fakenmeaserial", 0);
+  
   response += ",\"fakegdl90\":";
   response += preferences.getInt("fakegdl90", 0);
 
@@ -734,12 +815,23 @@ void setup() {
   digitalWrite(LEDPINRED, LOW);
 
   preferences.begin("GS-Traffic", false);
-
   // Resetting to Defaults, if no SSID is found (ESP32 seems to be blank)
   if (preferences.getString("ssid", "") == "")
   {
     defaultsettings();
   }
+
+  // Checking values of posresetcycles and twresetcycles. If they are 0 due to update from previous versions, set them to 50
+  if (preferences.getInt("posresetcycles", 0)==0)
+  {
+    preferences.putInt("posresetcycles", 50);
+  }
+  if (preferences.getInt("twresetcycles", 0)==0)
+  {
+    preferences.putInt("twresetcycles", 50);
+  }
+
+
 
   // Starting serial based on configuration
   Serial.begin(preferences.getInt("baudrate", 0));
@@ -943,31 +1035,21 @@ void loop()
     }
 
     // Checking if Fake-Mode is activated (deactivating serial-wifi-bridging)
-    if (preferences.getInt("fakenmea", 0) == 1 || preferences.getInt("fakedl90", 0) == 1)
+    if (preferences.getInt("fakenmea", 0) == 1 || preferences.getInt("fakenmeaserial", 0) == 1 || preferences.getInt("fakedl90", 0) == 1)
     {
-      // Global delay for both NMEA and GDL90 in Fake-Mode
-      delay(400);
+      // Global delay for both NMEA (Wifi and Serial) and GDL90 in Fake-Mode
+      delay(300);
 
       // Fakecode for NMEA
       if (preferences.getInt("fakenmea", 0) == 1)
       {
-        // Simple faking of an static messages
-        for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++)
-        {
-          if (TCPClient[0][cln])
-            TCPClient[0][cln].println("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
-          TCPClient[0][cln].println("$GPGSA,A,3,10,16,18,26,,,,,,,,,4.56,3.60,2.80*01"); //Fake-GPGSA
-          TCPClient[0][cln].println("$PGRMZ,137,F,2*3F"); //Fake-PGRMZ
-        }
-        if (extractstream == 1) // Extract data vom Stream if option is turned on
-        {
-          extractdata("$GPRMC,081834.825,A,5417.91,N,00940.95,E,70.0,120.0,040821,,,*13"); //Fake-GPRMC
-          delay(5);
-          extractdata("$GPGSA,A,3,10,16,18,26,,,,,,,,,4.56,3.60,2.80*01"); //Fake-GPGSA
-          delay(5);
-          extractdata("$PGRMZ,137,F,2*3F"); //Fake-PGRMZ
+          fakenmea(0);
+      }
 
-        }
+      // Fakecode for NMEA via Serial
+      if (preferences.getInt("fakenmeaserial", 0) == 1)
+      {
+          fakenmea(1);
       }
 
       // Fakecode for GDL90
