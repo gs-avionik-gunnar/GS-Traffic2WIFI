@@ -13,6 +13,9 @@ Hardware-Version is detected by GPIO12 and GPIO14. On Selfmade-Hardware as well 
 You can find example .stl-Files under "case". HW1.0-case_old was the default case for the GS-Traffic2Wifi-1.0 PCB and needs 4x M3x35 screws. HW1.0-case contains the improved case for GS-Traffic2Wifi-1.0 PCB made by a customer. Thanks to Christian, the new case is completly screwless. If you're searching for a case you should use the new version. You can also find front- and rearplates of the Traffic2WIFIv2 aluminium-cases.
 
 ## Versions
+Version 3.0 is now stable and offers all features of the BETA-Versions as well as
+- Fixed: Changed Country-Code for WIFI-Mode to DE
+
 Version 3.0 BETA2 is out for testing in BETA-Branch and offers some additional features - use with caution!:
 - Added: Experimental Fake-Mode for Serial-Output is now part of this firmware (replaces dedicated Faker-Firmware for my own development-setup)
 - Fixed: Updatecycles will be 0 in WebUI if update <3.0 and no Default-Settings are loaded

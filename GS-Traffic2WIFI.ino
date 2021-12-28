@@ -1,3 +1,5 @@
+// Changelog Softwareversion 3.0:       Fixed: Changed Country-Code for WIFI-Mode to DE 
+//                                      Tested: Tested with 1.0, 2.0 DEV and 2.0 Final Hardware without any problems
 // Changelog Softwareversion 3.0 BETA2: Added: Experimental Fake-Mode for Serial-Output is now part of this firmware (replaces dedicated Faker-Firmware for my own development-setup)
 //                                      Fixed: Updatecycles will be 0 in WebUI if update <3.0 and no Default-Settings are loaded
 //                                      Fixed: Changed Update text from Failure to Unknown-State for updates, which are handled very quick
@@ -553,6 +555,7 @@ void defaultsettings()
   String tmpwpakey = wpakey;
   preferences.begin("GS-Traffic", false);
   preferences.clear();
+  preferences.putString("countrycode", "DE");
   preferences.putString("ssid", tmpssid);
   preferences.putString("wpakey", tmpwpakey);
   preferences.putInt("extractstream", 0);
@@ -582,6 +585,7 @@ void applysettings()
 {
   preferences.begin("GS-Traffic", false);
   preferences.clear();
+  preferences.putString("countrycode", webserver.arg("countrycode"));
   preferences.putString("ssid", webserver.arg("ssid"));
   preferences.putString("wpakey", webserver.arg("wpakey"));
   preferences.putInt("baudrate", webserver.arg("baudrate").toInt());
@@ -661,7 +665,7 @@ void sendjson() {
 
   String response = "{";
   response += "\"version\":\"";
-  response += "3.0 BETA2";
+  response += "3.0";
 
   response += "\",\"compiledate\":\"";
   response += compile_date;
@@ -684,6 +688,9 @@ void sendjson() {
 
   response += "\",\"wpakey\":\"";
   response += preferences.getString("wpakey", "");
+
+  response += "\",\"countrycode\":\"";
+  response += preferences.getString("countrycode", "");
 
   response += "\",\"extractstream\":";
   response += preferences.getInt("extractstream", 0);
@@ -821,6 +828,12 @@ void setup() {
     defaultsettings();
   }
 
+  // Checking value of countrycode. If they are 0 due to update from previous versions, set them to DE (Germany)
+  if (preferences.getString("countrycode", "") == "")
+  {
+      preferences.putString("countrycode", "DE");
+  }
+
   // Checking values of posresetcycles and twresetcycles. If they are 0 due to update from previous versions, set them to 50
   if (preferences.getInt("posresetcycles", 0)==0)
   {
@@ -922,6 +935,14 @@ void setup() {
   {
     esp_err_t esp_wifi_set_max_tx_power(50);
   }
+  
+    // Setting default WIFI-Country to Germnay
+    //preferences.getString("countrycode", "")
+    
+    esp_err_t esp_wifi_set_country(const wifi_country_t *DE);
+
+
+
 
   // Starting UDP for GDL90
   udp.begin(preferences.getInt("udpport", 0));
