@@ -667,7 +667,7 @@ void sendjson() {
 
   String response = "{";
   response += "\"version\":\"";
-  response += "3.0";
+  response += "3.0b";
 
   response += "\",\"compiledate\":\"";
   response += compile_date;
