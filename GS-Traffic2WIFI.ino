@@ -1,3 +1,5 @@
+// Changelog Softwareversion 3.0b:      Changed Read-MAC-Function to be compatible to newer ESP32-Libraries.
+//                                      Modified: WIFI-Security is now WPA2-PSK for not generating "Unsecure" Warning on Apple-Devices
 // Changelog Softwareversion 3.0:       Fixed: Changed Country-Code for WIFI-Mode to DE 
 //                                      Tested: Tested with 1.0, 2.0 DEV and 2.0 Final Hardware without any problems
 // Changelog Softwareversion 3.0 BETA2: Added: Experimental Fake-Mode for Serial-Output is now part of this firmware (replaces dedicated Faker-Firmware for my own development-setup)
@@ -548,7 +550,7 @@ void extractdata(String nmeax)
 // Reset to "Default-Settings"
 void defaultsettings()
 {
-  esp_efuse_read_mac(chipid);
+  esp_efuse_mac_get_default(chipid);
   sprintf(ssid, "GS-Traffic-%02x%02x", chipid[4], chipid[5]);
   sprintf(wpakey, "%02x%02x%02x%02x", chipid[2], chipid[3], chipid[4], chipid[5]);
   String tmpssid = ssid;
@@ -671,7 +673,7 @@ void sendjson() {
   response += compile_date;
 
   char mac[50] = "";
-  esp_efuse_read_mac(chipid);
+  esp_efuse_mac_get_default(chipid);
   sprintf(mac, "%02x:%02x:%02x:%02x:%02x:%02x",  chipid[0], chipid[1], chipid[2], chipid[3], chipid[4], chipid[5]);
 
   response += "\",\"mac\":\"";
