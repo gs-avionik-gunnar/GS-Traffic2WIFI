@@ -12,7 +12,12 @@ Hardware-Version is detected by GPIO12 and GPIO14. On Selfmade-Hardware as well 
 ## Cases
 You can find example .stl-Files under "case". HW1.0-case_old was the default case for the GS-Traffic2Wifi-1.0 PCB and needs 4x M3x35 screws. HW1.0-case contains the improved case for GS-Traffic2Wifi-1.0 PCB made by a customer. Thanks to Christian, the new case is completly screwless. If you're searching for a case you should use the new version. You can also find front- and rearplates of the Traffic2WIFIv2 aluminium-cases.
 
+
 ## Versions
+Version 3.0b is released has only minor changes
+ - Changed Read-MAC-Function to be compatible to newer ESP32-Libraries.
+ - Modified: WIFI-Security is now WPA2-PSK for not generating "Unsecure" Warning on Apple-Devices
+
 Version 3.0 is now stable and offers all features of the BETA-Versions as well as
 - Fixed: Changed Country-Code for WIFI-Mode to DE
 
