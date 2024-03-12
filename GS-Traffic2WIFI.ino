@@ -1,3 +1,5 @@
+// Changelog Softwareversion 3.0c:      Fixed: Modified Serial-Code to solve some of the 3.0b bugs
+//                                      Tested: Tested with 1.0, 2.0 DEV and 2.0 Final Hardware without any problems
 // Changelog Softwareversion 3.0b:      Changed Read-MAC-Function to be compatible to newer ESP32-Libraries.
 //                                      Modified: WIFI-Security is now WPA2-PSK for not generating "Unsecure" Warning on Apple-Devices
 // Changelog Softwareversion 3.0:       Fixed: Changed Country-Code for WIFI-Mode to DE 
@@ -9,7 +11,7 @@
 //                                      Fixed: Resetsettings will now work all the times
 //                                      Fixed: Minor Web-UI Changes for better usability
 //                                      Added: Support for 2.0 Hardware (DEV-Devices)
-//                                      Added: Lot more details in http://192.168,1.1/gs.json for debugging
+//                                      Added: Lot more details in http://192.168.1.1/gs.json for debugging
 //                                      Added: Showing Compile-Date of Firmware in WebUI
 //                                      Added virtual Status-LED in WebUI (Works like the real Status-LED)
 //                                      Added Orange-LED-Out-Warning if no valid Position is avilable, configurable in Web-UI
@@ -85,8 +87,6 @@ int statusled = 0; //0=off, 1=green, 2=red, 3=orange
 int trafficwarning=0; //0=off; >0 means on couting down with extract data
 int positionwarning=0; //0=off; >0 means on couting down with extract data
 
-HardwareSerial* COM[NUM_COM] = {&Serial};
-
 // Define Web-Server, without TCP-Port
 WebServer webserver(0);
 
@@ -128,9 +128,9 @@ void outputfakenmea(char *nmea_data, int mode)
 {
     if (mode==1) // Serial-Fakemode
     {
-      COM[0]->print(nmea_data);
-      COM[0]->print("*");
-      COM[0]->println(nmea0183_checksum(nmea_data),HEX);
+      Serial2.print(nmea_data);
+      Serial2.print("*");
+      Serial2.println(nmea0183_checksum(nmea_data),HEX);
     }
     
     if (mode==0) // Wifi-Fakemode
@@ -667,7 +667,7 @@ void sendjson() {
 
   String response = "{";
   response += "\"version\":\"";
-  response += "3.0b";
+  response += "3.0c";
 
   response += "\",\"compiledate\":\"";
   response += compile_date;
@@ -875,9 +875,9 @@ void setup() {
   // Soft-COM-Port based on HW-Type
   if (hwtype == "2.0")
   {
-    COM[0]->begin(preferences.getInt("baudrate", 0), SERIAL_PARAM0, SERIAL0_RXPINv2, SERIAL0_TXPINv2); // Changed to variable Baudrate
+    Serial2.begin(preferences.getInt("baudrate", 0), SERIAL_PARAM0, SERIAL0_RXPINv2, SERIAL0_TXPINv2); // Changed to variable Baudrate
   } else {
-    COM[0]->begin(preferences.getInt("baudrate", 0), SERIAL_PARAM0, SERIAL0_RXPIN, SERIAL0_TXPIN); // Changed to variable Baudrate
+    Serial2.begin(preferences.getInt("baudrate", 0), SERIAL_PARAM0, SERIAL0_RXPIN, SERIAL0_TXPIN); // Changed to variable Baudrate
   }
 
   // No Default-GW-Routing, if disabled (default) and Clientmode is off
@@ -1085,13 +1085,13 @@ void loop()
     } else
     {
       // No simulation, doing real serial-wifi-bridging
-      if (COM[0] != NULL)
+      if (Serial2 != NULL)
       {
-        if (COM[0]->available())
+        if (Serial2.available())
         {
-          while (COM[0]->available())
+          while (Serial2.available())
           {
-            buf2[0][i2[0]] = COM[0]->read();
+            buf2[0][i2[0]] = Serial2.read();
             if (i2[0] < bufferSize - 1) i2[0]++;
           }
 
@@ -1160,7 +1160,7 @@ void loop()
         Serial.println(client.readString());
       }
       // Sending received data on serial
-      COM[0]->print(client.readString());
+      Serial2.print(client.readString());
 
     }
     client.stop();
