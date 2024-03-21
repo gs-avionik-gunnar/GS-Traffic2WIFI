@@ -2,17 +2,39 @@
 GS-Traffic is a serial-wifi-bridge with some specific features for NMEA-/Flarm-devices. You can use it for connecting your moving-map-software to your Flarm- or GPS-device.
 GS-Traffic2Wifi Software 1.0 and 1.1 was a stripped down fork of [ESP32-Serial-Bridge](https://github.com/AlphaLima/ESP32-Serial-Bridge). With Version 2.0 there are a lot of extensions and the codebase is reworked in most parts. Version 2.0 and higher offer a WebUI for configuring the device.
 
+##Hardware-Releases
+|                                   | GS-Traffic2WIFIv1       | GS-Traffic2WIFIv2   | GS-Traffic2WIFIv3 |
+|-----------------------------------|-------------------------|---------------------|-------------------|
+| Chipset                           | ESP32                   | ESP32               | ESP32-S3          |
+| Software-Compatiblity             | 1.0>now                 | 3.0>now             | 4.0>now           |
+| Support of Warn-LED (GPS+Traffic) | via soldering           | supported           | not supported     |
+| Screen+Knob                       | not supported           | not supported       | supported         |
+| Factory-Reset                     | Jumper Cable needed     | via Button          | via Screen/Menu   |
+| Flash                             | WebUI + Micro-USB       | WebUI + Programmer  | WebUI + USB-C     |
+| Debugging				                  | via USB				           | via Programmer		  | via TCP (SW 4.0>) |
+| Support of RS232 TX               | supported               | supported           | not supported     |
+| Support of Trafficmod-LED         | via Adapter + Soldering | via Adapter         | supported         |
+
 ## Hardware-Compatibility / Used GPIO-Pins
 GS-Traffic2WIFI is the default Soft-/Firmware of the GS-Traffic2Wifi-Kits, available on [gs-avionik.de](https://www.gs-avionik.de) but will also work with any ESP32-Devkit-Module with an attached TTL/RS232-Converter on GPIO21 and GPIO01.
 Since SW-Version 2.0 RPIO19 is used as a factory-reset when connected to GND and startup.
 Since SW-Version 2.2 there is support added for a dualcolor-LED von GPIO18 and GPIO05 for status and/or Traffic-Warning.
-Hardware-Version is detected by GPIO12 and GPIO14. On Selfmade-Hardware as well as GS-Traffic2Wifi-1.0 PCBs these Pins are software pulled_up and floating or HIGH. On genuine GS-Traffic2Wifi-2.0 PCBs (will be available in mid 2022) GPIO 12 and GPIO14 will be connected to GND. Please don't connected these PINs to GND when using Selfmade-Hardware or GS-Traffic2Wifi-1.0 PCBs, because layout and used GPIO-Ports will change and the firmware will use different IO-Ports and features.
+Hardware-Version is detected by GPIO12 and GPIO14. On Selfmade-Hardware as well as GS-Traffic2Wifi-1.0 PCBs these Pins are software pulled_up and floating or HIGH. On genuine GS-Traffic2Wifi-2.0 PCBs (available since mid 2022) GPIO 12 and GPIO14 will be connected to GND. Please don't connected these PINs to GND when using Selfmade-Hardware or GS-Traffic2Wifi-1.0 PCBs, because layout and used GPIO-Ports will change and the firmware will use different IO-Ports and features.
 ![Schematic](docs/schematic.svg)
 
 ## Cases
 You can find example .stl-Files under "case". HW1.0-case_old was the default case for the GS-Traffic2Wifi-1.0 PCB and needs 4x M3x35 screws. HW1.0-case contains the improved case for GS-Traffic2Wifi-1.0 PCB made by a customer. Thanks to Christian, the new case is completly screwless. If you're searching for a case you should use the new version. You can also find front- and rearplates of the Traffic2WIFIv2 aluminium-cases.
 
 ## Versions
+Version 4.0 Alpha 1 is released for testing only. Support for Hardware-Version 3.0 
+
+Version 3.0c is released has only minor changes
+ - Modified Serial-Code to solve some of the 3.0b bugs
+
+Version 3.0b is released has only minor changes
+ - Changed Read-MAC-Function to be compatible to newer ESP32-Libraries.
+ - Modified: WIFI-Security is now WPA2-PSK for not generating "Unsecure" Warning on Apple-Devices
+ 
 Version 3.0 is now stable and offers all features of the BETA-Versions as well as
 - Fixed: Changed Country-Code for WIFI-Mode to DE
 
