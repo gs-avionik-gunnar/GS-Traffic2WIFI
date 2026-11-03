@@ -1,94 +1,187 @@
-# GS-Traffic2WIFI
-GS-Traffic is a serial-wifi-bridge with some specific features for NMEA-/Flarm-devices. You can use it for connecting your moving-map-software to your Flarm- or GPS-device.
-GS-Traffic2Wifi Software 1.0 and 1.1 was a stripped down fork of [ESP32-Serial-Bridge](https://github.com/AlphaLima/ESP32-Serial-Bridge). With Version 2.0 there are a lot of extensions and the codebase is reworked in most parts. Version 2.0 and higher offer a WebUI for configuring the device.
+# GS-Traffic2WIFI 4.0 (stable)
 
-## Hardware-Compatibility / Used GPIO-Pins
-GS-Traffic2WIFI is the default Soft-/Firmware of the GS-Traffic2Wifi-Kits, available on [gs-avionik.de](https://www.gs-avionik.de) but will also work with any ESP32-Devkit-Module with an attached TTL/RS232-Converter on GPIO21 and GPIO01.
-Since SW-Version 2.0 RPIO19 is used as a factory-reset when connected to GND and startup.
-Since SW-Version 2.2 there is support added for a dualcolor-LED von GPIO18 and GPIO05 for status and/or Traffic-Warning.
-Hardware-Version is detected by GPIO12 and GPIO14. On Selfmade-Hardware as well as GS-Traffic2Wifi-1.0 PCBs these Pins are software pulled_up and floating or HIGH. On genuine GS-Traffic2Wifi-2.0 PCBs (will be available in mid 2022) GPIO 12 and GPIO14 will be connected to GND. Please don't connected these PINs to GND when using Selfmade-Hardware or GS-Traffic2Wifi-1.0 PCBs, because layout and used GPIO-Ports will change and the firmware will use different IO-Ports and features.
-![Schematic](docs/schematic.svg)
+Complete rewrite of the GS-Traffic2WIFI firmware (Arduino IDE). It bridges a serial NMEA/FLARM source to WiFi (TCP) and, new in 4.0, converts the NMEA data into **GDL90** and broadcasts it via UDP for EFB apps. Hardware 3.0 (M5 Dial) is supported, with its own display driver and no external libraries.
 
-## Cases
-You can find example .stl-Files under "case". HW1.0-case_old was the default case for the GS-Traffic2Wifi-1.0 PCB and needs 4x M3x35 screws. HW1.0-case contains the improved case for GS-Traffic2Wifi-1.0 PCB made by a customer. Thanks to Christian, the new case is completly screwless. If you're searching for a case you should use the new version. You can also find front- and rearplates of the Traffic2WIFIv2 aluminium-cases.
+## Hardware releases
 
-## Versions
-Version 3.0c is released has only minor changes
- - Modified Serial-Code to solve some of the 3.0b bugs
+|                                   | GS-Traffic2WIFIv1       | GS-Traffic2WIFIv2  | GS-Traffic2WIFIv3 |
+|-----------------------------------|-------------------------|--------------------|-------------------|
+| Chipset                           | ESP32                   | ESP32              | ESP32-S3 (M5 Dial) |
+| Software compatibility            | 1.0 > now               | 3.0 > now          | 4.0 > now         |
+| Support of Warn-LED (GPS+Traffic) | via soldering           | supported          | via LED ring / display |
+| Screen + knob                     | not supported           | not supported      | supported         |
+| Factory reset                     | jumper cable needed (GPIO 19 to GND at power-up) | via button | via screen / menu |
+| Flash                             | WebUI + Micro-USB       | WebUI + programmer | WebUI + USB-C     |
+| Debugging                         | via USB                 | via programmer     | via USB-C         |
+| Support of RS232 TX               | supported               | supported          | not supported     |
+| Support of Trafficmod LED         | not supported           | not supported      | supported         |
+| Bluetooth LE (NMEA)               | not supported (does not fit the app partition) | not supported (does not fit the app partition) | supported |
 
-Version 3.0b is released has only minor changes
- - Changed Read-MAC-Function to be compatible to newer ESP32-Libraries.
- - Modified: WIFI-Security is now WPA2-PSK for not generating "Unsecure" Warning on Apple-Devices
+## Functions
 
-Version 3.0 is now stable and offers all features of the BETA-Versions as well as
-- Fixed: Changed Country-Code for WIFI-Mode to DE
+| Function                                              | v1 | v2 | v3 |
+|-------------------------------------------------------|----|----|----|
+| NMEA over TCP (port configurable)                     | yes | yes | yes |
+| GDL90 over UDP (ownship, traffic, geometric altitude)  | yes | yes | yes |
+| NMEA and GDL90 individually switchable, run in parallel | yes | yes | yes |
+| GDL90 delivery: broadcast / unicast per device / both  | yes | yes | yes |
+| Stratux heartbeat, optional ForeFlight ID              | yes | yes | yes |
+| Strict NMEA (reject sentences without checksum)        | yes | yes | yes |
+| WebUI (English / German), help texts, OTA update       | yes | yes | yes |
+| WiFi region selection (29 regions), channel validation | yes | yes | yes |
+| Client mode with fallback access point                 | yes | yes | yes |
+| Simulator (6 aircraft, all FLARM alarm levels)         | yes | yes | yes |
+| Red / orange status LED                                | yes | yes | -   |
+| Display with wheel (flight data, GNSS, WiFi, info)     | -   | -   | yes |
+| Traffic radar and traffic list on the display          | -   | -   | yes |
+| WiFi QR code on the display                            | -   | -   | yes |
+| Settings on the display (brightness, outputs, reset)   | -   | -   | yes |
+| Trafficmod LED ring (direction of alarm traffic)       | -   | -   | yes |
+| NMEA over Bluetooth LE (HM-10 / CC2541 compatible)     | -   | -   | yes |
 
-Version 3.0 BETA2 is out for testing in BETA-Branch and offers some additional features - use with caution!:
-- Added: Experimental Fake-Mode for Serial-Output is now part of this firmware (replaces dedicated Faker-Firmware for my own development-setup)
-- Fixed: Updatecycles will be 0 in WebUI if update <3.0 and no Default-Settings are loaded
-- Fixed: Changed Update text from Failure to Unknown-State for updates, which are handled very quick
+## What 4.0 brings
 
-Version 3.0 BETA is out for testing in BETA-Branch and offers some additional features - use with caution!:
-- Fixed: Saving settings will use POST instead of GET for changed parameters
-- Fixed: Resetsettings will now work all the times
-- Fixed: Minor Web-UI Changes for better usability
-- Added: Support for 2.0 Hardware (DEV-Devices)
-- Added: Lot more details in http://192.168,1.1/gs.json for debugging
-- Added: Showing Compile-Date of Firmware in WebUI
-- Added virtual Status-LED in WebUI (Works like the real Status-LED)
-- Added Orange-LED-Out-Warning if no valid Position is avilable, configurable in Web-UI
-- Added New-LED-Bootup-Sequence
-- Added experimental Debug-Mode-Activation via Web-UI (mostly usable on 2.0 Devices)
-- Rewritten code for Trafficwarn-LED, more Options in Web-UI
+### GDL90 output (UDP, default port 4000)
+- Generated from the NMEA stream:
+  - Ownship from `RMC`, `GGA`, `GSA`, `PGRMZ` (pressure altitude, GPS MSL altitude as fallback)
+  - Traffic from FLARM `PFLAA` (relative position converted to lat/lon), alarm level from `PFLAA`/`PFLAU`
+  - Messages: Heartbeat (0x00), Ownship (0x0A), Ownship Geometric Altitude (0x0B), Traffic (0x14), Stratux heartbeat (0xCC), optional ForeFlight ID (0x65)
+- One heartbeat/ownship/altitude cycle per second; traffic reports are spread over the second.
+- The CRC follows the GDL90 ICD (`crc = Table[crc >> 8] ^ (crc << 8) ^ byte`), checked against the ICD example heartbeat.
+- Delivery: UDP broadcast (default), unicast to every connected device (Stratux style) or both. Packets are sent from the GDL90 port itself.
+- The status page has a panel "GDL90 as sent" (heartbeat flags, ownship position, altitudes, NIC/NACp, counters).
+- While the simulator runs the heartbeat does not claim a valid UTC time.
+- Verified with SkyDemon.
 
-Version 2.3b is now stable and offers some additional features:
-- Added Feature to update Firmware via Webgui
-- Added tweaks for future hardware-versions
-- Added tooltips in WebUI for all config-options
-- Increased maximum of simultaneous NMEA-Clients to 10 devices
+### NMEA
+- NMEA over TCP and GDL90 over UDP run in parallel and are switchable independently.
+- Sentences without checksum are accepted by default, bad checksums are always dropped; "Strict NMEA" rejects sentences without checksum. The status page shows the last rejected lines (B: bad checksum, N: no checksum).
 
-Version 2.2 is now stable and offers some additional features:
-- Added experimental Client-Mode for Wifi and TCP-Bridging
-- Added code for dualcolor LED on GPIO18 and GPIO5 for status of the module and/or Traffic-Warning (Configurable based on $PFLAU)
-- Added baud rates: 115.200 and 230.400
+### Stability and scaling
+- Bounded, allocation-free NMEA line assembler; truncated or corrupt sentences are counted and dropped.
+- The web server runs in its own task; the data path never waits for HTTP.
+- Slow TCP clients are dropped instead of stalling the bridge; saving settings no longer clears the NVS namespace.
+- Client mode is non-blocking; if joining fails the unit opens a fallback AP with the factory credentials.
+- Fixed-size tables (40 traffic targets, 10 TCP clients); the logic is split into small modules.
 
-Version 2.1 is now stable and offers some additional features:
-- Added extracting data from $GPGSA and $PGRMZ messages
+### WebUI
+- English / German (button in the header, remembered in the browser, default follows the browser language).
+- Help text for every setting (switchable), strict validation with clear error messages, WiFi region with matching channel list, "Saving..." feedback.
+- Ownship identity (address, address type, callsign, emitter category) grouped as advanced settings.
+- LED ring on/off and brightness (hardware 3.0 only; hidden on hardware 1/2), Bluetooth LE on/off and name; the system panel shows whether phones are connected via Bluetooth LE.
 
-Version 2.0 is now stable and offers some additional features like:
-- Webgui (http://192.168.1.1) for configuring GS-Traffic2WIFI
-- Status pages and basic code for extracting and interpreting received NMEA-data
-- Configurable baud-rates and tcp-ports
-- Configurable SSID / WPA-Key
-- Power-Reducing-Mode for Wifi
-- NMEA-GRPMC-Fake for testing (only one dummy message)
+### Hardware 3.0
+- Build for v3 ESP32-S3. Own GC9A01 driver, own fonts (`tools/genfont.py`), interrupt-driven wheel, buzzer click and a bit-banged WS2812 driver. No extra libraries.
+- **Wheel:** turn = next/previous page, click = action of the page, long press (0.8 s) = back to the first page / leave the menu.
+- **Pages:** Flight data (ground speed, altitude, track) - GNSS (satellites, position state, UTC, HDOP) - Traffic radar (click = range 1/2/5/10 NM, track-up while moving, targets coloured by FLARM alarm level, relative altitude in 100 ft) - Traffic list (5 most important targets: alarm first, then distance; relative altitude, climb/sink) - WiFi (SSID, key, IP, clients) - Bluetooth (name, connected phones) - WiFi QR (scan with the phone camera to join the WiFi) - Info (firmware, hardware) - Settings.
+- **Settings menu** (press the wheel to open): display brightness, LED ring on/off, LED brightness, start page, NMEA TCP, NMEA BLE, GDL90 UDP, restart, factory reset (with confirmation), back. Changing an output saves and restarts; brightness and start page are saved without a restart.
+- **Trafficmod LEDs** (25 x WS2812, GPIO 13): LED 0 = status (green / red alarm / orange no position), LEDs 1-24 = direction of traffic within 5 NM relative to the track; only targets with an alarm are shown (yellow / orange / red = FLARM alarm level 1 / 2 / 3).
 
-Softwareversion 1.1 was the first offical release and was shipped with GS-Traffic2WIFI Modules offered by [gs-avionik.de](https://www.gs-avionik.de).
+### Bluetooth LE (Hardware 3.0)
+- The module behaves like a CC2541 / HM-10 serial adapter: service `0xFFE0`, characteristic `0xFFE1` (notify, write without response), 20 byte notifications, same NMEA stream as TCP. Name configurable (default = default SSID), off by default, applies after reboot, runs in parallel to WiFi.
 
-## Instructions for factory reset
-For resetting the device to default please connect PIN 19 to GND and reboot the unit. After one second please disconnect and reboot again. The device is now on default-settings.
+## Build
 
-## Schema of SSID and WIFI-Key
-The generated SSID and WIFI-Key is part of the unique MAC of the ESP32. The SSID contains the last 4 digits of the mac-adress with a prefix of "GS-Traffic-". The Key is generated by the last 8 digits of the mac-adress.
+Arduino IDE, Arduino-ESP32 core 2.0.x or 3.x. No extra libraries.
 
-## Instructions for installing on blank device (or updating via PC) on Hardware-Version 1.0 or Selfmade-Hardware
-On Windows, MacOS and Linux you can build the project by yourself or you can use the compiled binaries with [nodemcu-pyflasher] (https://github.com/marcelstoer/nodemcu-pyflasher/releases) for loading the firmware. Just connect the ESP32 via Micro-USB to your computer, start the nodemcu-pyflasher, select the COM-Port and select the latest binary of GS-Traffic2WIFI to upload. Please leave all other options unchanged. If your pc didn't recognize the COM-Port of the ESP32 you have to install an [USB-serial VCP Driver]  (https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers). As an alternative to nodemcu-pyflasher you can also use [ESPHOME-Flasher] (https://github.com/esphome/esphome-flasher/releases/), which requires online-connection for downloading the ESP32-Bootloader when flashing.
+## Layout
 
-## Instructions for installing on blank device (or updating via PC) on Hardware-Version 2.0
-Will be published when Hardware is available.
+```
+GS-Traffic2WIFI/     Arduino sketch (open GS-Traffic2WIFI.ino)
+  Nmea.*             line assembler, checksum, sentence parsers     pure C++
+  State.*            ownship/traffic state, LED logic               pure C++
+  Gdl90.*            GDL90 encoder + 1 Hz publisher                 pure C++
+  Simulator.*        synthetic NMEA for testing                     pure C++
+  Settings.*         NVS persistence, migration from 3.x
+  Bridge.*           serial / TCP / UDP / BLE data path
+  WebUi.*, WebPage.h WebUI, JSON API, OTA update
+  StatusLed.*, App.* LED, shared runtime state
+  Ble.*              NMEA over Bluetooth LE
+  DialUi.*, Gfx.*, Qr.*  HW 3.0 pages, menu, LED ring, 2D renderer, QR     pure C++
+  DialHw.*, DialFont.*  HW 3.0 display/wheel/LED drivers, fonts (ESP32-S3 only)
+tools/               gdl90_monitor.py, genfont.py
+test/                host tests + syntax check of the ESP32 glue
+```
 
-## Instructions for updating via Webbrowser (OTA)
-Since SW-Version 2.3 you can upload the firmware via Webbrowser on http://192.168.1.1
+Threading: `loop()` owns the navigation state (writes under a mutex); the web task and the display task only read snapshots. Settings are read-only at runtime; the WebUI saves and reboots.
 
-## Additional documentation
-You can find an [Produktdatenblatt (German)](https://gs-avionik.de/gs-datenblaetter/Produktdatenblatt%20GS-Traffic2WIFI.pdf) of the GS-Traffic2WIFI-Kits.
+## GDL90 notes
 
-## Media
-You can see some videos of GS-Traffic2WIFI on my [Youtube-Channel](https://www.youtube.com/channel/UCv42FT93emRBfOEssAWbdOw)
+- Position valid/UTC flags in the heartbeat follow the age of the last valid `RMC` (3 s).
+- Without a valid fix, ownship is still sent (NIC = 0, position 0/0) as the spec requires, so apps show "no GPS".
+- NIC is fixed at 8 like Stratux; NACp is estimated from HDOP (HDOP x 5 m). Traffic uses NIC 8 / NACp 8.
+- "Airborne" is derived from ground speed with hysteresis (on at 30 kt, off below 15 kt).
+- Ownship vertical rate is reported as "unknown"; traffic vertical rate comes from `PFLAA`.
+- Traffic altitude = ownship pressure altitude + relative vertical distance from `PFLAA`.
+- FLARM aircraft types are mapped to GDL90 emitter categories. Traffic callsign is the 6-digit FLARM/ICAO id.
+- Traffic is dropped 6 s after the last `PFLAA` update.
+- Datagrams are only sent while at least one station is associated (AP mode).
 
-##  Known issues of actual Version
-- Currently alls known issues are solved in the current version.
+## Settings changes compared to 3.x
 
-Feel free to modify and contribute! 
+- Settings use a new NVS namespace (`gs4`). On first boot SSID, key, region, baud rate, ports, gateway/power/client flags and LED options are imported from 3.x automatically.
+- "Extract data from NMEA" is gone: parsing is always on.
+- LED reset cycles (counted in NMEA messages) became hold times in seconds.
+- Client mode connects to a configurable server address instead of the hard-coded 192.168.1.1.
+- The simulator replaces the old fake modes; it feeds the full pipeline (TCP, serial, GDL90, BLE, LEDs).
+- Factory reset: hold GPIO 19 to GND at power-up (hardware 1/2) or use the display menu (hardware 3); the WPA key is no longer exposed by the web API.
 
-The project uses [Mini-CSS Framework](https://minicss.org) and [jquery](https://github.com/jquery/jquery) in Web-UI
+## Version history
+
+GS-Traffic2WIFI software 1.0 and 1.1 was a stripped down fork of [ESP32-Serial-Bridge](https://github.com/AlphaLima/ESP32-Serial-Bridge). With version 2.0 there are a lot of extensions and the codebase was reworked in most parts; version 2.0 and higher offer a WebUI for configuring the device. Software 1.1 was the first official release and was shipped with GS-Traffic2WIFI modules offered by [gs-avionik.de](https://www.gs-avionik.de).
+
+**4.0 (stable)** - complete rewrite, see above: GDL90 output, NMEA over Bluetooth LE, hardware 3.0 (M5 Dial) with display, traffic radar, LED ring and WiFi QR code, new WebUI in English and German.
+
+**3.0c** - minor changes
+- Modified serial code to solve some of the 3.0b bugs.
+
+**3.0b** - minor changes
+- Changed read-MAC function to be compatible with newer ESP32 libraries.
+- WiFi security is now WPA2-PSK, so Apple devices no longer show an "unsecure" warning.
+
+**3.0** - stable, offers all features of the 3.0 betas and
+- Fixed: country code for WiFi mode changed to DE.
+
+**3.0 BETA2**
+- Added: experimental fake mode for serial output (replaces the dedicated faker firmware used for development).
+- Fixed: update cycles are 0 in the WebUI when updating from a version before 3.0 and no default settings are loaded.
+- Fixed: the update text shows "unknown state" instead of "failure" for updates that finish very quickly.
+
+**3.0 BETA**
+- Fixed: saving settings uses POST instead of GET for changed parameters.
+- Fixed: reset settings now always works.
+- Fixed: minor WebUI changes for better usability.
+- Added: support for 2.0 hardware (dev devices).
+- Added: many more details in `/gs.json` for debugging.
+- Added: compile date of the firmware in the WebUI.
+- Added: virtual status LED in the WebUI (works like the real status LED).
+- Added: orange LED warning if no valid position is available, configurable in the WebUI.
+- Added: new LED boot-up sequence.
+- Added: experimental debug mode via the WebUI (mostly usable on 2.0 devices).
+- Rewritten code for the traffic warning LED, more options in the WebUI.
+
+**2.3b** - stable
+- Added: firmware update via the WebUI.
+- Added: tweaks for future hardware versions.
+- Added: tooltips in the WebUI for all config options.
+- Increased the maximum number of simultaneous NMEA clients to 10.
+
+**2.2** - stable
+- Added: experimental client mode for WiFi and TCP bridging.
+- Added: code for a dual-colour LED on GPIO 18 and GPIO 5 for module status and/or traffic warning (configurable, based on `$PFLAU`).
+- Added: baud rates 115200 and 230400.
+
+**2.1** - stable
+- Added: extracting data from `$GPGSA` and `$PGRMZ` messages.
+
+**2.0** - stable
+- WebUI (http://192.168.1.1) for configuring GS-Traffic2WIFI.
+- Status pages and basic code for extracting and interpreting received NMEA data.
+- Configurable baud rates and TCP ports.
+- Configurable SSID / WPA key.
+- Power-reducing mode for WiFi.
+- NMEA GPRMC fake for testing (only one dummy message).
+
+## License
+
+See LICENSE. The WebUI no longer uses jQuery or Mini.css.
