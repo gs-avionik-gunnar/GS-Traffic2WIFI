@@ -1,6 +1,6 @@
 SKETCH := ../GS-Traffic2WIFI
 CXXFLAGS := -std=gnu++11 -O1 -g -Wall -Wextra -I$(SKETCH)
-CORE := $(SKETCH)/Nmea.cpp $(SKETCH)/State.cpp $(SKETCH)/Gdl90.cpp $(SKETCH)/Simulator.cpp $(SKETCH)/Regions.cpp $(SKETCH)/Gfx.cpp $(SKETCH)/Qr.cpp $(SKETCH)/DialUi.cpp $(SKETCH)/DialFont.cpp
+CORE := $(SKETCH)/Nmea.cpp $(SKETCH)/State.cpp $(SKETCH)/Gdl90.cpp $(SKETCH)/Simulator.cpp $(SKETCH)/Regions.cpp $(SKETCH)/Gfx.cpp $(SKETCH)/Qr.cpp $(SKETCH)/DialUi.cpp $(SKETCH)/DialFont.cpp $(SKETCH)/FlightLog.cpp $(SKETCH)/CallsignDb.cpp
 
 all: run
 
@@ -12,7 +12,7 @@ run: test_core
 
 # Compile-only check of the Arduino glue against minimal stub headers (no ESP32 core needed).
 syntax:
-	for f in Settings Bridge WebUi StatusLed App Regions DialHw Ble; do \
+	for f in Settings FlightStore CallsignStore Bridge WebUi StatusLed App Regions DialHw Ble; do \
 	  $(CXX) -std=gnu++11 -fsyntax-only -Wall -Wextra -Wno-unused-parameter -Istubs -I$(SKETCH) $(SKETCH)/$$f.cpp || exit 1; \
 	done
 	$(CXX) -std=gnu++11 -fsyntax-only -Wall -Wno-unused-parameter -Istubs -I$(SKETCH) -x c++ $(SKETCH)/GS-Traffic2WIFI.ino

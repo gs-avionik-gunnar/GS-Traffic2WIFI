@@ -8,7 +8,11 @@
 
 
 static uint16_t buf[240 * 30];
+<<<<<<< Updated upstream
 static const DialEnv env = {"192.168.1.1", "GS-Traffic-a1b2", "c3d4a1b2", 2, true, false, "4.0Beta1", "3.0"};
+=======
+static DialEnv env = {"192.168.1.1", "GS-Traffic-a1b2", "c3d4a1b2", 2, true, false, true, true, 1, "GS-Traffic-a1b2", "4.0", "3.0"};
+>>>>>>> Stashed changes
 
 static void dump(DialUi& ui, const NavState& n, uint32_t now, const char* name) {
   FILE* f = fopen(name, "wb");
@@ -52,8 +56,13 @@ int main(int argc, char** argv) {
   DialUi ui;
   ui.begin(s, 0);
   now = 10500;
+<<<<<<< Updated upstream
   const char* names[] = {"flight", "gnss", "radar", "list", "net", "qr", "info", "menu"};
   for (int p = 0; p < 8; ++p) {
+=======
+  const char* names[] = {"flight", "gnss", "radar", "list", "net", "ble", "qr", "info", "flights", "menu"};
+  for (int p = 0; p < 10; ++p) {
+>>>>>>> Stashed changes
     ui.gotoPage(p);
     snprintf(name, sizeof name, "%s/page_%d_%s.ppm", dir, p, names[p]);
     dump(ui, n, now, name);
@@ -66,6 +75,20 @@ int main(int argc, char** argv) {
   ui.onRotate(1); ui.onClick();
   snprintf(name, sizeof name, "%s/menu_edit.ppm", dir);
   dump(ui, n, now, name);
+  // flight log screens
+  static flightlog::Flight fls[3] = {{1793966400u, 3725, 5412345, 950000, 5450000, 975000}, {1793880000u, 600, 5301234, 1054321, 5310000, 1060000}, {1793000000u, 300, 1, 2, 3, 4}};
+  env.fl = fls; env.nFl = 3;
+  s.flightLog = true; s.flightKmh = 60;
+  DialUi fu;
+  fu.begin(s, 0);
+  fu.gotoPage(DialUi::kFlights);
+  snprintf(name, sizeof name, "%s/fl_closed.ppm", dir); dump(fu, n, now, name);
+  fu.onClick();
+  snprintf(name, sizeof name, "%s/fl_detail.ppm", dir); dump(fu, n, now, name);
+  fu.onClick();
+  snprintf(name, sizeof name, "%s/fl_confirm.ppm", dir); dump(fu, n, now, name);
+  fu.onClick(); for (int i = 0; i < 3; ++i) fu.onRotate(1);
+  snprintf(name, sizeof name, "%s/fl_delall.ppm", dir); dump(fu, n, now, name);
   ui.begin(s, now - 100);
   ui.gotoPage(0);
   snprintf(name, sizeof name, "%s/splash.ppm", dir);

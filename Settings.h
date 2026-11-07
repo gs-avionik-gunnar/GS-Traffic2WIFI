@@ -35,6 +35,10 @@ struct Settings {
   bool positionLed;      // orange when there is no valid position
   uint16_t trafficHoldS;
   uint16_t positionHoldS;
+  bool nmeaReg;          // append the registration to PFLAA IDs in the NMEA stream (ID!REG), needs the aircraft database
+  // Flight log
+  bool flightLog;        // record flights (start/end time, duration, start/end position)
+  uint16_t flightKmh;    // ground speed threshold for start/stop, km/h
   // Hardware 3.0 (M5 Dial): display + LED ring
   uint8_t dialBright;    // display backlight, 10..100 %
   uint8_t ringBright;    // Trafficmod LED brightness, 5..100 %

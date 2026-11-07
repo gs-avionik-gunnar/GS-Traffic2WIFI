@@ -1,4 +1,4 @@
-// GS-Traffic2WIFI 4.0 - serial/NMEA to WiFi bridge with GDL90 output for ESP32.
+// GS-Traffic2WIFI 4.1BETA1 - serial/NMEA to WiFi bridge with GDL90 output for ESP32.
 //
 // Architecture (see README.md):
 //   Nmea.*       NMEA line assembly, checksum, parsers            (pure C++, unit-tested)
@@ -22,6 +22,8 @@
 #include "Bridge.h"
 #include "Config.h"
 #include "DialHw.h"
+#include "FlightStore.h"
+#include "CallsignStore.h"
 #include "Regions.h"
 #include "Settings.h"
 #include "StatusLed.h"
@@ -150,6 +152,8 @@ void setup() {
   if (g_hw3) dialhw::begin();
   Serial.printf("\nGS-Traffic2WIFI %s (HW %s), built %s %s\n", GS_FW_VERSION, g_hwName, __DATE__, __TIME__);
 
+  flights::begin();
+  csstore::begin();
   startWifi();
   bridge.begin();
   webBegin();

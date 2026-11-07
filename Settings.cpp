@@ -54,6 +54,13 @@ void settingsDefaults(Settings& s) {
   s.dialBright = 80;
   s.ringBright = 30;
   s.ring = false;
+<<<<<<< Updated upstream
+=======
+  s.startPage = 0;
+  s.nmeaReg = false;
+  s.flightLog = true;
+  s.flightKmh = 60;
+>>>>>>> Stashed changes
 }
 
 static uint32_t clampU(uint32_t v, uint32_t lo, uint32_t hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -93,6 +100,11 @@ void settingsSanitize(Settings& s) {
   s.positionHoldS = (uint16_t)clampU(s.positionHoldS, 1, 600);
   s.dialBright = (uint8_t)clampU(s.dialBright, 10, 100);
   s.ringBright = (uint8_t)clampU(s.ringBright, 5, 100);
+<<<<<<< Updated upstream
+=======
+  s.startPage = (uint8_t)clampU(s.startPage, 0, 7);
+  s.flightKmh = (uint16_t)clampU(s.flightKmh, 20, 300);
+>>>>>>> Stashed changes
   s.debug = (uint8_t)clampU(s.debug, 0, 3);
   if (s.clientHost[0] == '\0') strcpy(s.clientHost, "192.168.1.1");
   for (char* c = s.callsign; *c; ++c)
@@ -166,6 +178,13 @@ static void readAll(Preferences& p, Settings& s) {
   s.dialBright = p.getUChar("dlbr", s.dialBright);
   s.ringBright = p.getUChar("tmbr", s.ringBright);
   s.ring = p.getBool("tmod", s.ring);
+<<<<<<< Updated upstream
+=======
+  s.startPage = p.getUChar("dlstart", s.startPage);
+  s.nmeaReg = p.getBool("nreg", s.nmeaReg);
+  s.flightLog = p.getBool("flog", s.flightLog);
+  s.flightKmh = p.getUShort("fkmh", s.flightKmh);
+>>>>>>> Stashed changes
   s.debug = p.getUChar("debug", s.debug);
   s.simWifi = p.getBool("simw", s.simWifi);
   s.simSerial = p.getBool("sims", s.simSerial);
@@ -203,6 +222,13 @@ static void writeAll(Preferences& p, const Settings& s) {
   p.putUChar("dlbr", s.dialBright);
   p.putUChar("tmbr", s.ringBright);
   p.putBool("tmod", s.ring);
+<<<<<<< Updated upstream
+=======
+  p.putUChar("dlstart", s.startPage);
+  p.putBool("nreg", s.nmeaReg);
+  p.putBool("flog", s.flightLog);
+  p.putUShort("fkmh", s.flightKmh);
+>>>>>>> Stashed changes
   p.putUChar("debug", s.debug);
   p.putBool("simw", s.simWifi);
   p.putBool("sims", s.simSerial);

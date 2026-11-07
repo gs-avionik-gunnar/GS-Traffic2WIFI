@@ -289,6 +289,13 @@ void Publisher::emitTraffic(uint32_t now, NavState& nav, FrameSink sink, void* c
     r.emitter = emitterFromFlarm(t.acType);
     static const char hex[] = "0123456789ABCDEF";
     for (int i = 0; i < 6; ++i) r.callsign[i] = hex[(t.id >> (20 - 4 * i)) & 0xF];  // callsign = FLARM/ICAO id
+    char reg[16];
+    if (cfg_.lookup && cfg_.lookup(t.id, reg)) {  // known aircraft: registration letters and digits (GDL90 has no hyphen)
+      int k = 0;
+      for (int i = 0; reg[i] && k < 8; ++i)
+        if ((reg[i] >= '0' && reg[i] <= '9') || (reg[i] >= 'A' && reg[i] <= 'Z') || (reg[i] >= 'a' && reg[i] <= 'z')) r.callsign[k++] = reg[i];
+      if (k > 0) r.callsign[k] = 0;
+    }
     uint8_t p[kReportLen];
     emit(p, encodeReport(kIdTraffic, r, p), sink, ctx);
     cursor_ = (idx + 1) % TrafficTable::kMax;

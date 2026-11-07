@@ -90,6 +90,12 @@ class NavState {
   void applyPflaa(const nmea::Pflaa& a, uint32_t now);
 
   bool posFresh(uint32_t now) const { return rmcValid && age(now, posMs) < kPosTimeoutMs; }
+  // UTC time as seconds since 1970 (needs a recent RMC with date and time).
+  bool utcEpoch(uint32_t now, uint32_t& epoch) const {
+    if (!dateValid || !timeFresh(now)) return false;
+    epoch = utcDay * 86400u + secOfDay + age(now, timeMs) / 1000u;
+    return true;
+  }
   bool timeFresh(uint32_t now) const { return timeValid && age(now, timeMs) < 5000; }
   bool baroFresh(uint32_t now) const { return baroValid && age(now, baroMs) < kBaroTimeoutMs; }
   bool altFresh(uint32_t now) const { return altValid && age(now, altMs) < kAltTimeoutMs; }
@@ -112,6 +118,8 @@ class NavState {
   float trackDeg;
   bool timeValid;
   uint32_t secOfDay, timeMs;
+  bool dateValid;
+  uint32_t utcDay;  // days since 1970-01-01 of the last RMC with a date
   bool altValid;
   float altMslM;
   bool geoidValid;

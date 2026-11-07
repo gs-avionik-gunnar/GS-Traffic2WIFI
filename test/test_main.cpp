@@ -301,7 +301,7 @@ static void testEndToEnd() {
         case kIdTraffic: {
           uint32_t id = (d.payload[2] << 16) | (d.payload[3] << 8) | d.payload[4];
           ++trafAll;
-          if (id == 0xDD1234) ++trafA;
+          if (id == 0x3FEBA7) ++trafA;
           if (id == 0xDD5678) ++trafB;
           if (d.payload[1] >> 4) ++alerts;
           break;
@@ -673,12 +673,42 @@ static void testDial() {
   u2.onLongPress();
   CHECK(u2.takeAction() == kDialSave);
   CHECK(u2.settings().dialBright == 90);
+<<<<<<< Updated upstream
+=======
+  // start page: the UI begins on it, the menu changes it and saves without a reboot
+  DialUi u5;
+  Settings sp = st;
+  sp.startPage = 2;
+  u5.begin(sp, 0);
+  CHECK(u5.page() == DialUi::kRadar);
+  u5.gotoPage(DialUi::kMenu);
+  u5.onClick();                                   // open
+  for (int i = 0; i < 3; ++i) u5.onRotate(1);     // Start page
+  u5.onClick();                                   // edit
+  u5.onRotate(1); u5.onRotate(1);
+  u5.onClick();
+  CHECK(u5.settings().startPage == 4);
+  u5.onLongPress();
+  CHECK(u5.takeAction() == kDialSave);
+  // restart item: saves and reboots without a confirmation
+  DialUi u6;
+  u6.begin(st, 0);
+  u6.gotoPage(DialUi::kMenu);
+  u6.onClick();
+  for (int i = 0; i < 9; ++i) u6.onRotate(1);
+  u6.onClick();
+  CHECK(u6.takeAction() == kDialSaveReboot);
+>>>>>>> Stashed changes
   // factory reset needs the confirmation and defaults to Cancel
   DialUi u3;
   u3.begin(st, 0);
   u3.gotoPage(DialUi::kMenu);
   u3.onClick();
+<<<<<<< Updated upstream
   for (int i = 0; i < 6; ++i) u3.onRotate(1);
+=======
+  for (int i = 0; i < 10; ++i) u3.onRotate(1);
+>>>>>>> Stashed changes
   u3.onClick();
   CHECK(u3.confirmState() == 1);
   u3.onClick();
@@ -688,6 +718,61 @@ static void testDial() {
   CHECK(u3.confirmState() == 2);
   u3.onClick();
   CHECK(u3.takeAction() == kDialFactoryReset);
+  // flight log in the menu: list, delete one (with confirmation), delete all, settings
+  {
+    flightlog::Flight fls[3] = {{1793966400u, 3725, 5412345, 950000, 5450000, 975000}, {1793880000u, 600, 1, 2, 3, 4}, {1793000000u, 300, 1, 2, 3, 4}};
+    DialEnv fe;
+    memset(&fe, 0, sizeof fe);
+    fe.fw = "x"; fe.hw = "3.0"; fe.fl = fls; fe.nFl = 3;
+    static uint16_t bmem[240 * 30];
+    gfx::Canvas cv;
+    DialUi uf;
+    NavState fn;
+    Settings sf = st;
+    sf.flightKmh = 60;
+    uf.begin(sf, 0);
+    uf.gotoPage(DialUi::kFlights);
+    for (int y0 = 0; y0 < 240; y0 += 30) { cv.setBand(bmem, y0, 30); uf.render(cv, fn, fe, 10000); }
+    uf.onRotate(1);                              // closed: the wheel changes the page
+    CHECK(uf.page() == DialUi::kMenu);
+    uf.gotoPage(DialUi::kFlights);
+    uf.onClick();
+    CHECK(uf.flightView() == 1);
+    for (int y0 = 0; y0 < 240; y0 += 30) { cv.setBand(bmem, y0, 30); uf.render(cv, fn, fe, 10000); }
+    uf.onRotate(1);                              // second flight
+    uf.onClick();
+    CHECK(uf.confirmState() == 1 && uf.confirmKind() == 1);
+    uf.onClick();                                // Cancel
+    CHECK(uf.takeAction() == kDialNone);
+    uf.onClick(); uf.onRotate(1); uf.onClick();  // Delete
+    CHECK(uf.takeAction() == kDialFlightDelete && uf.deleteStart() == 1793880000u);
+    uf.onRotate(1);                              // third
+    uf.onRotate(1);                              // Delete all
+    uf.onRotate(1);                              // Back
+    for (int y0 = 0; y0 < 240; y0 += 30) { cv.setBand(bmem, y0, 30); uf.render(cv, fn, fe, 10000); }
+    uf.onRotate(-1);
+    uf.onClick(); uf.onRotate(1); uf.onClick();
+    CHECK(uf.takeAction() == kDialFlightDeleteAll);
+    for (int i = 0; i < 4; ++i) uf.onRotate(1);
+    uf.onClick();  // Back
+    CHECK(uf.flightView() == 0 && uf.page() == DialUi::kFlights);
+    // log switch and speed live in the Settings menu
+    uf.gotoPage(DialUi::kMenu);
+    uf.onClick();
+    for (int i = 0; i < 7; ++i) uf.onRotate(1);
+    uf.onClick();                                  // Flight log toggle
+    CHECK(uf.settings().flightLog != sf.flightLog);
+    uf.onRotate(1); uf.onClick(); uf.onRotate(1); uf.onRotate(1); uf.onClick();
+    CHECK(uf.settings().flightKmh == 70);
+    uf.onLongPress();
+    CHECK(uf.takeAction() == kDialSave);
+    // empty log
+    DialEnv ee; memset(&ee, 0, sizeof ee); ee.fw = "x"; ee.hw = "3.0";
+    DialUi ue; ue.begin(st, 0); ue.gotoPage(DialUi::kFlights); ue.onClick();
+    for (int y0 = 0; y0 < 240; y0 += 30) { cv.setBand(bmem, y0, 30); ue.render(cv, fn, ee, 10000); }
+    ue.onClick();
+    CHECK(ue.flightView() == 0);
+  }
   // rendering never writes outside the band buffer (guard words around it)
   static uint16_t mem[240 * 30 + 64];
   for (int i = 0; i < 64; ++i) mem[i] = mem[240 * 30 + i] = 0xABCD;
@@ -734,7 +819,227 @@ static void testDial() {
   CHECK(lit == 2);
 }
 
+
+// ---- flight log ----
+#include "FlightLog.h"
+struct FakeStore : flightlog::Store {
+  flightlog::Flight cur; bool hasCur = false; int saves = 0;
+  flightlog::Flight all[flightlog::kMaxFlights]; int n = 0;
+  void saveCurrent(const flightlog::Flight& f) override { cur = f; hasCur = true; }
+  void clearCurrent() override { hasCur = false; }
+  void saveAll(const flightlog::Flight* l, int c) override { for (int i = 0; i < c; ++i) all[i] = l[i]; n = c; ++saves; }
+};
+static void feedRmc(NavState& nav, uint32_t now, int sec, double kt, double latMin, const char* date) {
+  char body[160], line[180];
+  int h = sec / 3600, m = sec / 60 % 60, s = sec % 60;
+  snprintf(body, sizeof body, "GPRMC,%02d%02d%02d,A,%02d%07.4f,N,01000.0000,E,%.1f,90.0,%s,,,A", h, m, s, 50, latMin, kt, date);
+  unsigned cs = 0;
+  for (const char* c = body; *c; ++c) cs ^= (unsigned char)*c;
+  snprintf(line, sizeof line, "$%s*%02X", body, cs);
+  nav.ingestLine(line, now);
+}
+// Simulates seconds of flight data: 1 Hz, speed kt for dur seconds starting at tStart (ms == s*1000).
+static void runFlight(flightlog::Log& log, NavState& nav, int& t, int secs, double kt, double latMin) {
+  for (int i = 0; i < secs; ++i, ++t) {
+    feedRmc(nav, (uint32_t)t * 1000, 43200 + t, kt, latMin + t * 0.001, "061126");
+    log.tick(nav, (uint32_t)t * 1000, true, 60);
+  }
+}
+static void testFlightLog() {
+  FakeStore st; flightlog::Log log; log.init(&st, nullptr, 0, nullptr);
+  NavState nav;
+  int t = 1000;
+  runFlight(log, nav, t, 30, 0, 0);          // standing
+  CHECK(log.count() == 0 && !log.active());
+  runFlight(log, nav, t, 8, 80, 10);         // too short to start (8 s)
+  runFlight(log, nav, t, 20, 0, 0);
+  CHECK(!log.active());
+  runFlight(log, nav, t, 600, 80, 10);       // ~43 km/h? no: 80 kt = 148 km/h
+  CHECK(log.active() && st.hasCur);
+  runFlight(log, nav, t, 30, 10, 20);        // 30 s below: still flying
+  CHECK(log.active());
+  runFlight(log, nav, t, 70, 10, 20);        // >60 s below: ends
+  CHECK(!log.active() && log.count() == 1 && !st.hasCur && st.n == 1);
+  const flightlog::Flight& f = log.at(0);
+  CHECK(f.dur >= 595 && f.dur <= 625);
+  CHECK(f.sLat != 0 && f.eLat > f.sLat && f.sLon == 1000000);
+  // epoch: 06 Nov 2026 12:00 UTC = 1793966400 (+ offset since start)
+  CHECK(f.start >= 1793966400u && f.start < 1793966400u + 3000u);
+  // short flight (1 min) is dropped
+  runFlight(log, nav, t, 70, 80, 10);
+  runFlight(log, nav, t, 80, 0, 0);
+  // 70 s above, but flight duration < 120 s -> dropped
+  CHECK(log.count() == 1);
+  // delete
+  CHECK(log.removeByStart(f.start) && log.count() == 0 && st.n == 0);
+  // 50 limit
+  for (int k = 0; k < 52; ++k) { runFlight(log, nav, t, 200, 80, 10); runFlight(log, nav, t, 70, 0, 0); }
+  CHECK(log.count() == 50);
+  CHECK(log.at(0).start > log.at(49).start);
+  log.clear();
+  CHECK(log.count() == 0);
+}
+static void testFlightRecovery() {
+  FakeStore st; flightlog::Log log;
+  flightlog::Flight c = {1000, 500, 1, 2, 3, 4};
+  log.init(&st, nullptr, 0, &c);
+  CHECK(log.count() == 1 && log.at(0).dur == 500 && !st.hasCur);
+  flightlog::Flight d = {1000, 60, 1, 2, 3, 4};
+  flightlog::Log l2; l2.init(&st, nullptr, 0, &d);
+  CHECK(l2.count() == 0);
+}
+
+// ---- aircraft database ----
+#include "CallsignDb.h"
+static std::vector<uint8_t> g_blob;
+static bool blobRead(uint32_t off, void* buf, size_t n) {
+  if (off + n > g_blob.size()) return false;
+  memcpy(buf, g_blob.data() + off, n);
+  return true;
+}
+static void putU32(std::vector<uint8_t>& v, uint32_t x) { for (int i = 0; i < 4; ++i) v.push_back((uint8_t)(x >> (8 * i))); }
+static void buildBlob(const std::vector<std::pair<uint32_t, const char*>>& e) {
+  g_blob.clear();
+  g_blob.push_back('G'); g_blob.push_back('S'); g_blob.push_back('D'); g_blob.push_back('B');
+  putU32(g_blob, (uint32_t)e.size()); putU32(g_blob, 7); putU32(g_blob, 0);
+  for (auto& x : e) {
+    putU32(g_blob, x.first);
+    for (int i = 0; i < 8; ++i) g_blob.push_back(i < (int)strlen(x.second) ? (uint8_t)x.second[i] : 0);
+  }
+}
+static void testCallsignDb() {
+  buildBlob({{0x000256, "D-KGOR"}, {0x00AB12, "OK-IFJ"}, {0xAB12CD, "D-1234"}, {0xDD1234, "N727AM"}, {0xFFFFFF, "D-ETIG"}});
+  csdb::setReader(blobRead);
+  CHECK(csdb::openSlot(0, 0, (uint32_t)g_blob.size()) && csdb::count() == 5 && csdb::count(1) == 0);
+  char r[16];
+  CHECK(csdb::lookup(0x256, r) && strcmp(r, "D-KGOR") == 0);
+  CHECK(csdb::lookup(0xFFFFFF, r) && strcmp(r, "D-ETIG") == 0);
+  CHECK(csdb::lookup(0xAB12CD, r) && strcmp(r, "D-1234") == 0);
+  CHECK(!csdb::lookup(0x257, r) && !csdb::lookup(0, r) && !csdb::lookup(0xFFFFFE, r));
+  // broken data is rejected
+  std::vector<uint8_t> keep = g_blob;
+  g_blob[0] = 'X';
+  CHECK(!csdb::openSlot(0, 0, (uint32_t)g_blob.size()) && csdb::count() == 0 && !csdb::lookup(0x256, r));
+  g_blob = keep;
+  g_blob[4] = 99;  // count larger than the data
+  CHECK(!csdb::openSlot(0, 0, (uint32_t)g_blob.size()));
+  g_blob = keep;
+  CHECK(csdb::openSlot(0, 0, (uint32_t)g_blob.size()));
+  // second slot behind the first one: independent, slot 0 wins for an ID in both
+  {
+    std::vector<uint8_t> a = keep;
+    buildBlob({{0x000256, "OGNX"}, {0x123456, "D-OGN"}});
+    std::vector<uint8_t> second = g_blob;
+    g_blob = a;
+    uint32_t base = (uint32_t)g_blob.size() + 100;  // gap between the slots
+    g_blob.resize(base, 0xFF);
+    g_blob.insert(g_blob.end(), second.begin(), second.end());
+    CHECK(csdb::openSlot(0, 0, base) && csdb::openSlot(1, base, (uint32_t)second.size()) && csdb::count() == 7 && csdb::count(1) == 2);
+    CHECK(csdb::lookup(0x256, r) && strcmp(r, "D-KGOR") == 0);
+    CHECK(csdb::lookup(0x123456, r) && strcmp(r, "D-OGN") == 0);
+    csdb::closeSlot(0);
+    CHECK(csdb::lookup(0x256, r) && strcmp(r, "OGNX") == 0 && !csdb::lookup(0xAB12CD, r) && csdb::count() == 2);
+    csdb::closeSlot(1);
+    CHECK(!csdb::lookup(0x123456, r));
+    g_blob = keep;
+    CHECK(csdb::openSlot(0, 0, (uint32_t)g_blob.size()));
+  }
+  // PFLAA rewrite with checksum
+  char out[200];
+  const char* in = "$PFLAA,0,-1234,1234,220,2,AB12CD,180,,30,-1.4,1*";
+  char line[200];
+  unsigned cs = 0;
+  for (const char* c = in + 1; *c != '*'; ++c) cs ^= (unsigned char)*c;
+  snprintf(line, sizeof line, "%s%02X", in, cs);
+  CHECK(csdb::rewritePflaa(line, out, sizeof out));
+  CHECK(strncmp(out, "$PFLAA,0,-1234,1234,220,2,AB12CD!D-1234,180,,30,-1.4,1*", 55) == 0);
+  CHECK(nmea::verifyChecksum(out) == nmea::Checksum::Ok);
+  CHECK(!csdb::rewritePflaa("$PFLAA,0,1,2,3,2,AB12CE,180,,30,-1.4,1", out, sizeof out));            // unknown
+  CHECK(!csdb::rewritePflaa("$PFLAA,0,1,2,3,2,AB12CD!X,180,,30,-1.4,1", out, sizeof out));          // already has an alias
+  CHECK(!csdb::rewritePflaa("$PFLAA,0,1,2,3,2,,180,,30,-1.4,1", out, sizeof out));                    // no id
+  CHECK(!csdb::rewritePflaa("$GPRMC,1,2,3,4,5,AB12CD,7", out, sizeof out));
+  CHECK(csdb::rewritePflaa("$PFLAA,0,1,2,3,2,AB12CD,180,,30,-1.4,1", out, sizeof out) && strstr(out, "AB12CD!D-1234,180") && !strchr(out, '*'));
+  CHECK(!csdb::rewritePflaa(line, out, 20));  // buffer too small
+  // streaming: other sentences unchanged, split anywhere
+  std::string src = "$GPRMC,1,2*00\r\n" + std::string(line) + "\r\n$PFLAU,1*00\r\n" + std::string(line);  // last one without line end
+  std::string expect = std::string("$GPRMC,1,2*00\r\n") + out;  // placeholder, rebuilt below
+  csdb::rewritePflaa(line, out, sizeof out);
+  expect = "$GPRMC,1,2*00\r\n" + std::string(out) + "\r\n$PFLAU,1*00\r\n";
+  for (size_t step = 1; step <= 7; step += 3) {
+    csdb::LineRewriter rw;
+    std::string got;
+    auto emit = [](const uint8_t* d, size_t n, void* c) { static_cast<std::string*>(c)->append((const char*)d, n); };
+    for (size_t i = 0; i < src.size(); i += step) rw.feed((const uint8_t*)src.data() + i, std::min(step, src.size() - i), emit, &got);
+    CHECK(got == expect);  // the unfinished last line is held back until its end
+  }
+  // GDL90: registration replaces the hex id in the traffic callsign (no hyphen)
+  {
+    NavState nav;
+    uint32_t now = 1000;
+    nav.ingestLine("$GPRMC,123456.00,A,5230.0000,N,01330.0000,E,95.0,87.0,011125,,,A", now);
+    nav.ingestLine("$PFLAA,0,500,500,100,2,AB12CD,90,,60,0,1", now);
+    nav.ingestLine("$PFLAA,0,800,800,100,2,AB12CE,90,,60,0,1", now);
+    gdl90::Publisher pub;
+    gdl90::PublisherConfig cfg;
+    memset(&cfg, 0, sizeof cfg);
+    cfg.traffic = true;
+    cfg.lookup = csdb::lookup;
+    strcpy(cfg.callsign, "X");
+    pub.configure(cfg);
+    g_frames.clear();
+    for (int k = 0; k < 40; ++k) { now += 100; nav.ingestLine("$PFLAA,0,500,500,100,2,AB12CD,90,,60,0,1", now); nav.ingestLine("$PFLAA,0,800,800,100,2,AB12CE,90,,60,0,1", now); pub.tick(now, nav, collect, nullptr); }
+    bool known = false, unknown = false;
+    for (size_t i = 0; i < g_frames.size(); ++i) {
+      Decoded d = decode(g_frames[i].data(), g_frames[i].size());
+      if (d.payload[0] != gdl90::kIdTraffic) continue;
+      std::string cs8((const char*)&d.payload[19], 8);
+      if (cs8 == "D1234   ") known = true;
+      if (cs8 == "AB12CE  ") unknown = true;
+    }
+    CHECK(known && unknown);
+  }
+}
+
+static void testBootRing() {
+  RingFrame f;
+  computeBootRing(0, f);
+  int lit0 = 0;
+  for (int i = 0; i <= 24; ++i) lit0 += (f.rgb[i][0] | f.rgb[i][1] | f.rgb[i][2]) ? 1 : 0;
+  CHECK(lit0 == 1 && (f.rgb[1][0] | f.rgb[1][1] | f.rgb[1][2]) && !(f.rgb[0][0] | f.rgb[0][1] | f.rgb[0][2]));
+  computeBootRing(650, f);  // half way: head near LED 12 with a tail behind it
+  int lit = 0, tailLed = 0;
+  for (int i = 1; i <= 24; ++i) lit += (f.rgb[i][0] | f.rgb[i][1] | f.rgb[i][2]) ? 1 : 0;
+  CHECK(lit >= 6 && lit <= 9);
+  bool lastLit = false;
+  computeBootRing(1250, f);
+  lastLit = (f.rgb[24][0] | f.rgb[24][1] | f.rgb[24][2]) != 0;
+  CHECK(lastLit);  // the comet reaches the last LED
+  computeBootRing(kBootRingMs, f);
+  lit = 0;
+  for (int i = 0; i <= 24; ++i) lit += (f.rgb[i][0] | f.rgb[i][1] | f.rgb[i][2]) ? 1 : 0;
+  CHECK(lit == 0);
+  // the colour changes along the way: head colour at 1/4 and 3/4 differ
+  RingFrame a, b;
+  computeBootRing(325, a);
+  computeBootRing(975, b);
+  int ha = 0, hb = 0;
+  for (int i = 1; i <= 24; ++i) {
+    if (a.rgb[i][0] + a.rgb[i][1] + a.rgb[i][2] > a.rgb[ha][0] + a.rgb[ha][1] + a.rgb[ha][2]) ha = i;
+    if (b.rgb[i][0] + b.rgb[i][1] + b.rgb[i][2] > b.rgb[hb][0] + b.rgb[hb][1] + b.rgb[hb][2]) hb = i;
+  }
+  CHECK(memcmp(a.rgb[ha], b.rgb[hb], 3) != 0);
+  (void)tailLed;
+}
+
 int main() {
+<<<<<<< Updated upstream
+=======
+  testBootRing();
+  testCallsignDb();
+  testFlightLog();
+  testFlightRecovery();
+  testDialAltitude();
+>>>>>>> Stashed changes
   testQr();
   testDial();
   testNmea();
