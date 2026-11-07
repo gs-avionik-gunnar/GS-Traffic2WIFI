@@ -60,6 +60,8 @@ static void handleStatus() {
   if (apActive) jf(b, cap, len, "\"stations\":%d,\"rssi\":0},", WiFi.softAPgetStationNum());
   else jf(b, cap, len, "\"stations\":null,\"rssi\":%d},", (int)WiFi.RSSI());
 
+  jf(b, cap, len, "\"ble\":{\"avail\":%d,\"on\":%d,\"conn\":%d,\"name\":\"%s\"},", ble::available(), g_settings.ble && ble::available(),
+     ble::connections(), g_settings.bleName);
   jf(b, cap, len, "\"gps\":{\"valid\":%s,\"lat\":%.6f,\"lon\":%.6f,\"sog\":%.1f,\"trk\":%.1f,", pos ? "true" : "false", n.lat, n.lon,
      n.sogKt, n.trackDeg);
   if (n.timeFresh(now)) {
@@ -152,17 +154,10 @@ static void handleGetConfig() {
      "{\"ssid\":\"%s\",\"country\":\"%s\",\"channel\":%u,\"clientMode\":%d,\"clientHost\":\"%s\",\"defaultGw\":%d,\"reducePower\":%d,"
      "\"baud\":%lu,\"tcpPort\":%u,\"nmeaTcp\":%d,\"gdl90\":%d,\"gdl90Port\":%u,\"gdl90Traffic\":%d,\"stratuxHb\":%d,\"g90Cast\":%u,\"ffId\":%d,\"nmeaStrict\":%d,"
      "\"ownAddr\":\"%06lX\",\"ownAddrType\":%u,\"callsign\":\"%s\",\"emitter\":%u,\"trafficLed\":%u,\"positionLed\":%d,"
-<<<<<<< Updated upstream
-     "\"trafficHoldS\":%u,\"positionHoldS\":%u,\"ring\":%d,\"ringBright\":%u,\"ble\":%d,\"bleName\":\"%s\",\"bleAvail\":%d,\"debug\":%u,\"simWifi\":%d,\"simSerial\":%d}",
-     ssid, s.country, s.channel, s.clientMode, s.clientHost, s.defaultGw, s.reducePower, (unsigned long)s.baud, s.tcpPort, s.nmeaTcp,
-     s.gdl90, s.gdl90Port, s.gdl90Traffic, s.stratuxHb, (unsigned)s.g90Cast, s.ffId, s.nmeaStrict, (unsigned long)s.ownAddr, s.ownAddrType, cs, s.emitter, s.trafficLed,
-     s.positionLed, s.trafficHoldS, s.positionHoldS, s.ring, s.ringBright, s.ble, s.bleName, ble::available(), s.debug, s.simWifi, s.simSerial);
-=======
      "\"trafficHoldS\":%u,\"positionHoldS\":%u,\"ring\":%d,\"ringBright\":%u,\"ble\":%d,\"bleName\":\"%s\",\"bleAvail\":%d,\"ringAvail\":%d,\"startPage\":%u,\"nmeaReg\":%d,\"flightLog\":%d,\"flightKmh\":%u,\"debug\":%u,\"simWifi\":%d,\"simSerial\":%d}",
      ssid, s.country, s.channel, s.clientMode, s.clientHost, s.defaultGw, s.reducePower, (unsigned long)s.baud, s.tcpPort, s.nmeaTcp,
      s.gdl90, s.gdl90Port, s.gdl90Traffic, s.stratuxHb, (unsigned)s.g90Cast, s.ffId, s.nmeaStrict, (unsigned long)s.ownAddr, s.ownAddrType, cs, s.emitter, s.trafficLed,
      s.positionLed, s.trafficHoldS, s.positionHoldS, s.ring, s.ringBright, s.ble, s.bleName, ble::available(), g_hw3, (unsigned)s.startPage, s.nmeaReg, s.flightLog, (unsigned)s.flightKmh, s.debug, s.simWifi, s.simSerial);
->>>>>>> Stashed changes
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "application/json", g_json);
 }
@@ -240,11 +235,8 @@ static void handlePostConfig() {
   NUM(s.positionHoldS, "positionHoldS", "Orange LED delay", 1, 600);
   NUM(s.trafficLed, "trafficLed", "Red LED alarm level", 0, 3);
   NUM(s.ringBright, "ringBright", "LED ring brightness", 5, 100);
-<<<<<<< Updated upstream
-=======
   NUM(s.startPage, "startPage", "Start page", 0, 7);
   NUM(s.flightKmh, "flightKmh", "Flight log speed", 20, 300);
->>>>>>> Stashed changes
   NUM(s.debug, "debug", "Debug level", 0, 3);
   NUM(s.ownAddrType, "ownAddrType", "Address type", 0, 1);
   NUM(s.emitter, "emitter", "Emitter category", 0, 22);
@@ -293,7 +285,7 @@ static void handlePostConfig() {
   s.ffId = argBool("ffId");
   s.nmeaStrict = argBool("nmeaStrict");
   s.positionLed = argBool("positionLed");
-  s.ring = argBool("ring");
+  s.ring = g_hw3 && argBool("ring");  // the LED ring exists on hardware 3.0 only
   s.ble = argBool("ble");
   s.flightLog = argBool("flightLog");
   s.nmeaReg = argBool("nmeaReg");

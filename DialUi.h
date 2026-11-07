@@ -18,6 +18,9 @@ struct DialEnv {
   uint8_t clients;    // WiFi stations (AP mode) or TCP clients
   bool apMode;
   bool simulating;
+  bool bleAvail, bleOn;   // Bluetooth LE built in / switched on
+  uint8_t bleConn;        // connected phones
+  char bleName[21];
   const char* fw;
   const char* hw;
   const flightlog::Flight* fl;  // flight log, newest first
@@ -29,13 +32,9 @@ enum DialAction { kDialNone = 0, kDialSave, kDialSaveReboot, kDialFactoryReset, 
 
 class DialUi {
  public:
-<<<<<<< Updated upstream
-  enum Page { kFlight, kGnss, kRadar, kList, kNet, kQr, kInfo, kMenu, kPageCount };
-=======
   enum Page { kFlight, kGnss, kRadar, kList, kNet, kBle, kQr, kInfo, kFlights, kMenu, kPageCount };
->>>>>>> Stashed changes
 
-  void begin(const Settings& s, uint32_t now);
+  void begin(const Settings& s, uint32_t now);  // the first page is s.startPage
   void onRotate(int steps);  // + clockwise
   void onClick();
   void onLongPress();
@@ -60,20 +59,20 @@ class DialUi {
   int flightView() const { return fview_; }
   int flightSel() const { return fsel_; }
 
+  // Altitude shown on the flight page: GPS altitude above MSL, pressure altitude only as fallback.
+  static bool displayAltitudeFt(const NavState& n, uint32_t now, int32_t& ft, bool& pressure);
+
   static const int kRangesNm = 4;
 
  private:
-<<<<<<< Updated upstream
-  enum MenuItem { kMiDisplay, kMiRing, kMiRingBright, kMiNmea, kMiBle, kMiGdl90, kMiReset, kMiBack, kMiCount };
-=======
   enum MenuItem { kMiDisplay, kMiRing, kMiRingBright, kMiStart, kMiNmea, kMiBle, kMiGdl90, kMiFlightLog, kMiFlightKmh, kMiRestart, kMiReset, kMiBack, kMiCount };
->>>>>>> Stashed changes
   void drawFlight(gfx::Canvas& c, const NavState& n, uint32_t now);
   void drawGnss(gfx::Canvas& c, const NavState& n, uint32_t now);
   void drawRadar(gfx::Canvas& c, const NavState& n, uint32_t now);
   void drawList(gfx::Canvas& c, const NavState& n, uint32_t now);
   void drawNet(gfx::Canvas& c, const DialEnv& e);
   void drawQr(gfx::Canvas& c, const DialEnv& e);
+  void drawBle(gfx::Canvas& c, const DialEnv& e);
   void drawInfo(gfx::Canvas& c, const DialEnv& e);
   void drawMenu(gfx::Canvas& c);
   void drawFlights(gfx::Canvas& c, const DialEnv& e);

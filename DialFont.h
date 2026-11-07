@@ -11,6 +11,7 @@ struct DialFont {
   const uint8_t* data;    // rows of 2 bpp coverage (4 pixels per byte, MSB first), (width+3)/4 bytes per row; width 0 = glyph not included
 };
 
+extern const DialFont kFontTiny;    // ~13 px
 extern const DialFont kFontSmall;   // ~17 px
 extern const DialFont kFontMedium;  // ~25 px
 extern const DialFont kFontLarge;   // ~44 px

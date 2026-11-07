@@ -633,6 +633,25 @@ static void testQr() {
                     "0123456789012345678901234567890123456789012345678901234567890123456789", c));  // > 134 bytes
 }
 
+static void testDialAltitude() {
+  // Real case from a flight test: 20 ft elevation, QNH far above 1013 hPa -> pressure altitude -543 ft.
+  NavState n;
+  uint32_t now = 10000;
+  n.ingestLine("$GPRMC,123456.00,A,5230.0000,N,01330.0000,E,0.0,0.0,011125,,,A", now);
+  n.ingestLine("$GPGGA,123456.00,5230.0000,N,01330.0000,E,1,9,1.1,6.1,M,45.0,M,,", now);
+  n.ingestLine("$PGRMZ,-543,f,3", now);
+  int32_t ft = 0;
+  bool pressure = true;
+  CHECK(DialUi::displayAltitudeFt(n, now + 500, ft, pressure));
+  CHECK(!pressure && ft >= 19 && ft <= 21);  // the GPS altitude is shown, not the pressure altitude
+  // GGA gone stale -> fall back to the pressure altitude
+  NavState m;
+  m.ingestLine("$PGRMZ,-543,f,3", now);
+  CHECK(DialUi::displayAltitudeFt(m, now + 500, ft, pressure));
+  CHECK(pressure && ft == -543);
+  CHECK(!DialUi::displayAltitudeFt(m, now + 60000, ft, pressure));
+}
+
 static void testDial() {
   Settings st;
   memset(&st, 0, sizeof st);
@@ -660,7 +679,7 @@ static void testDial() {
   ui.onRotate(1);  // LED ring
   ui.onClick();
   CHECK(ui.settings().ring);
-  ui.onRotate(1); ui.onRotate(1);  // NMEA TCP
+  ui.onRotate(1); ui.onRotate(1); ui.onRotate(1);  // NMEA TCP
   ui.onClick();
   CHECK(!ui.settings().nmeaTcp);
   ui.onLongPress();  // leaves the menu
@@ -673,8 +692,6 @@ static void testDial() {
   u2.onLongPress();
   CHECK(u2.takeAction() == kDialSave);
   CHECK(u2.settings().dialBright == 90);
-<<<<<<< Updated upstream
-=======
   // start page: the UI begins on it, the menu changes it and saves without a reboot
   DialUi u5;
   Settings sp = st;
@@ -698,17 +715,12 @@ static void testDial() {
   for (int i = 0; i < 9; ++i) u6.onRotate(1);
   u6.onClick();
   CHECK(u6.takeAction() == kDialSaveReboot);
->>>>>>> Stashed changes
   // factory reset needs the confirmation and defaults to Cancel
   DialUi u3;
   u3.begin(st, 0);
   u3.gotoPage(DialUi::kMenu);
   u3.onClick();
-<<<<<<< Updated upstream
-  for (int i = 0; i < 6; ++i) u3.onRotate(1);
-=======
   for (int i = 0; i < 10; ++i) u3.onRotate(1);
->>>>>>> Stashed changes
   u3.onClick();
   CHECK(u3.confirmState() == 1);
   u3.onClick();
@@ -1032,14 +1044,11 @@ static void testBootRing() {
 }
 
 int main() {
-<<<<<<< Updated upstream
-=======
   testBootRing();
   testCallsignDb();
   testFlightLog();
   testFlightRecovery();
   testDialAltitude();
->>>>>>> Stashed changes
   testQr();
   testDial();
   testNmea();

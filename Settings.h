@@ -43,6 +43,7 @@ struct Settings {
   uint8_t dialBright;    // display backlight, 10..100 %
   uint8_t ringBright;    // Trafficmod LED brightness, 5..100 %
   bool ring;             // Trafficmod LED ring connected / enabled
+  uint8_t startPage;     // page shown after boot: 0 flight, 1 GNSS, 2 radar, 3 list, 4 WiFi, 5 Bluetooth, 6 WiFi QR, 7 info
   // Debug / test
   uint8_t debug;         // 0..3
   bool simWifi;          // simulator -> TCP (disables serial bridging)

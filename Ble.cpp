@@ -21,16 +21,19 @@ uint8_t s_ring[kRing];
 volatile size_t s_head = 0, s_tail = 0;  // head: write position, tail: read position
 BLECharacteristic* s_char = nullptr;
 volatile bool s_conn = false;
+volatile int s_count = 0;
 bool s_started = false;
 uint32_t s_last = 0;
 
 class ServerCb : public BLEServerCallbacks {
   void onConnect(BLEServer*) override {
     s_conn = true;
+    ++s_count;
     s_tail = s_head;  // start with fresh data
   }
   void onDisconnect(BLEServer*) override {
-    s_conn = false;
+    if (s_count > 0) --s_count;
+    s_conn = s_count > 0;
     BLEDevice::startAdvertising();
   }
 };
@@ -41,6 +44,7 @@ size_t used() { return (s_head + kRing - s_tail) % kRing; }
 
 bool available() { return true; }
 bool connected() { return s_conn; }
+int connections() { return s_count; }
 
 void begin(const char* name) {
   if (s_started) return;
@@ -95,6 +99,7 @@ void begin(const char*) {}
 void send(const uint8_t*, size_t) {}
 void poll(uint32_t) {}
 bool connected() { return false; }
+int connections() { return 0; }
 }  // namespace ble
 
 #endif

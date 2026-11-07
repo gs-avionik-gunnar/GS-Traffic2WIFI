@@ -11,4 +11,5 @@ void begin(const char* name);      // starts advertising (call once, after WiFi 
 void send(const uint8_t* d, size_t n);  // queue NMEA bytes for the connected phone
 void poll(uint32_t now);           // call from loop(): sends queued data in 20 byte notifications
 bool connected();
+int connections();                 // number of connected phones
 }  // namespace ble

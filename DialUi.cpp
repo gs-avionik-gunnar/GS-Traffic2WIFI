@@ -14,7 +14,7 @@ void DialUi::begin(const Settings& s, uint32_t now) {
   set_ = s;
   orig_ = s;
   t0_ = now;
-  page_ = kFlight;
+  page_ = s.startPage < kMenu ? s.startPage : kFlight;
   dirty_ = true;
 }
 
@@ -36,15 +36,12 @@ void DialUi::onRotate(int steps) {
       if (menuSel_ == kMiDisplay) {
         int v = (int)set_.dialBright + steps * 10;
         set_.dialBright = (uint8_t)(v < 10 ? 10 : (v > 100 ? 100 : v));
-<<<<<<< Updated upstream
-=======
       } else if (menuSel_ == kMiStart) {
         int v = (int)set_.startPage + (steps > 0 ? 1 : -1);
         set_.startPage = (uint8_t)(v < 0 ? 0 : (v > 7 ? 7 : v));
       } else if (menuSel_ == kMiFlightKmh) {
         int v = (int)set_.flightKmh + steps * 5;
         set_.flightKmh = (uint16_t)(v < 20 ? 20 : (v > 300 ? 300 : v));
->>>>>>> Stashed changes
       } else if (menuSel_ == kMiRingBright) {
         int v = (int)set_.ringBright + steps * 5;
         set_.ringBright = (uint8_t)(v < 5 ? 5 : (v > 100 ? 100 : v));
@@ -71,12 +68,8 @@ void DialUi::leaveMenu() {
   menuOpen_ = false;  // back on the closed Settings page
   bool needReboot = set_.nmeaTcp != orig_.nmeaTcp || set_.gdl90 != orig_.gdl90 || set_.ble != orig_.ble;
   bool changed = needReboot || set_.dialBright != orig_.dialBright || set_.ringBright != orig_.ringBright ||
-<<<<<<< Updated upstream
-                 set_.ring != orig_.ring;
-=======
                  set_.ring != orig_.ring || set_.startPage != orig_.startPage || set_.flightLog != orig_.flightLog ||
                  set_.flightKmh != orig_.flightKmh;
->>>>>>> Stashed changes
   if (needReboot) {
     action_ = kDialSaveReboot;
     rebooting_ = true;
@@ -140,27 +133,19 @@ void DialUi::onClick() {
   }
   switch (menuSel_) {
     case kMiDisplay:
-<<<<<<< Updated upstream
-    case kMiRingBright: editing_ = true; break;
-=======
     case kMiStart:
     case kMiRingBright:
     case kMiFlightKmh: editing_ = true; break;
     case kMiFlightLog: set_.flightLog = !set_.flightLog; break;
->>>>>>> Stashed changes
     case kMiRing: set_.ring = !set_.ring; break;
     case kMiNmea: set_.nmeaTcp = !set_.nmeaTcp; break;
     case kMiBle: set_.ble = !set_.ble; break;
     case kMiGdl90: set_.gdl90 = !set_.gdl90; break;
-<<<<<<< Updated upstream
-    case kMiReset: confirm_ = 1; break;
-=======
     case kMiRestart:  // saves pending changes and restarts
       action_ = kDialSaveReboot;
       rebooting_ = true;
       break;
     case kMiReset: confirmKind_ = 0; confirm_ = 1; break;
->>>>>>> Stashed changes
     case kMiBack: leaveMenu(); break;
   }
 }
@@ -186,9 +171,23 @@ static void fmtTime(char* b, size_t n, uint32_t s) {
 void DialUi::title(Canvas& c, const char* t, int y) { c.text(kFontMedium, 120, y, Center, kGreen, t); }
 
 void DialUi::drawDots(Canvas& c) {
-  const int n = kPageCount, gap = 14;
+  const int n = kPageCount, gap = 11;
   int x0 = 120 - (n - 1) * gap / 2;
   for (int i = 0; i < n; ++i) c.fillCircle(x0 + i * gap, 228, i == page_ ? 4 : 2, i == page_ ? kGreen : kGrey);
+}
+
+bool DialUi::displayAltitudeFt(const NavState& n, uint32_t now, int32_t& ft, bool& pressure) {
+  if (n.altFresh(now)) {
+    ft = (int32_t)lroundf(n.altMslM * 3.28084f);
+    pressure = false;
+    return true;
+  }
+  if (n.baroFresh(now)) {
+    ft = n.baroAltFt;
+    pressure = true;
+    return true;
+  }
+  return false;
 }
 
 static bool dataOk(const NavState& n, uint32_t now) { return n.lastRxMs != 0 && NavState::age(now, n.lastRxMs) < 5000; }
@@ -197,12 +196,15 @@ void DialUi::drawFlight(Canvas& c, const NavState& n, uint32_t now) {
   bool pos = n.posFresh(now);
   char v[16];
   struct Row { const char* unit; int y; };
-  const Row rows[3] = {{"kt", 36}, {"ft", 94}, {"deg", 152}};
+  const Row rows[3] = {{"kt", 22}, {"ft", 76}, {"deg", 130}};
   for (int i = 0; i < 3; ++i) {
     bool ok = false;
     if (i == 0 && pos && n.sogValid) { snprintf(v, sizeof v, "%d", (int)lroundf(n.sogKt)); ok = true; }
-    int32_t ft;
-    if (i == 1 && n.refAltitudeFt(now, ft)) { snprintf(v, sizeof v, "%ld", (long)ft); ok = true; }
+    // Altitude: GPS altitude above mean sea level (GGA), like the "real" altitude in the EFB. The pressure
+    // altitude (PGRMZ, 1013 hPa) differs from it by the QNH deviation, e.g. -543 ft at 20 ft elevation.
+    int32_t altFt;
+    bool altPressure;
+    if (i == 1 && displayAltitudeFt(n, now, altFt, altPressure)) { snprintf(v, sizeof v, "%ld", (long)altFt); ok = true; }
     if (i == 2 && pos && n.trackValid) { snprintf(v, sizeof v, "%03d", ((int)lroundf(n.trackDeg)) % 360); ok = true; }
     if (!ok) strcpy(v, "---");
     uint16_t col = ok ? kWhite : kGrey;
@@ -211,8 +213,14 @@ void DialUi::drawFlight(Canvas& c, const NavState& n, uint32_t now) {
     c.text(kFontLarge, x, rows[i].y, Left, col, v);
     c.text(kFontSmall, x + wv + 6, rows[i].y + 25, Left, kGreen, rows[i].unit);
   }
-  const char* lab = (n.baroFresh(now)) ? "baro" : "gps";
-  c.text(kFontSmall, 120, 204, Center, kGrey, lab);
+  char lab[40];
+  if (n.altFresh(now)) {
+    if (n.baroFresh(now)) snprintf(lab, sizeof lab, "GPS MSL  PA %ld", (long)n.baroAltFt);  // pressure altitude as reference
+    else strcpy(lab, "GPS MSL");
+  } else {
+    strcpy(lab, n.baroFresh(now) ? "pressure altitude" : "");
+  }
+  c.text(kFontTiny, 120, 188, Center, kGrey, lab);
   drawDots(c);
 }
 
@@ -354,6 +362,24 @@ void DialUi::drawNet(Canvas& c, const DialEnv& e) {
   drawDots(c);
 }
 
+void DialUi::drawBle(Canvas& c, const DialEnv& e) {
+  title(c, "Bluetooth", 14);
+  if (!e.bleAvail || !e.bleOn) {
+    c.text(kFontSmall, 120, 96, Center, kGrey, "Bluetooth LE is off");
+    c.text(kFontTiny, 120, 124, Center, kGrey, "enable it in Settings");
+    drawDots(c);
+    return;
+  }
+  char b[40];
+  c.text(kFontSmall, 120, 44, Center, kGrey, "Name");
+  c.text(kFontSmall, 120, 62, Center, kWhite, e.bleName);
+  c.text(kFontSmall, 120, 94, Center, kGrey, "Connected");
+  snprintf(b, sizeof b, "%u device%s", (unsigned)e.bleConn, e.bleConn == 1 ? "" : "s");
+  c.text(kFontMedium, 120, 112, Center, e.bleConn ? kGreen : kGrey, b);
+  c.text(kFontTiny, 120, 154, Center, kGrey, "NMEA, HM-10 compatible");
+  drawDots(c);
+}
+
 void DialUi::drawQr(Canvas& c, const DialEnv& e) {
   if (!e.apMode) {
     title(c, "WiFi QR", 14);
@@ -406,11 +432,7 @@ void DialUi::drawMenu(Canvas& c) {
     drawDots(c);
     return;
   }
-<<<<<<< Updated upstream
-  static const char* const labels[kMiCount] = {"Display", "LED ring", "LED bright.", "NMEA TCP", "NMEA BLE", "GDL90 UDP", "Factory reset", "Back"};
-=======
   static const char* const labels[kMiCount] = {"Display", "LED ring", "LED bright.", "Start page", "NMEA TCP", "NMEA BLE", "GDL90 UDP", "Flight log", "Log km/h", "Restart", "Factory reset", "Back"};
->>>>>>> Stashed changes
   for (int r = 0; r < 5; ++r) {
     int i = menuTop_ + r;
     if (i >= kMiCount) break;
@@ -425,8 +447,6 @@ void DialUi::drawMenu(Canvas& c) {
     switch (i) {
       case kMiDisplay: snprintf(b, sizeof b, "%u%%", set_.dialBright); break;
       case kMiRingBright: snprintf(b, sizeof b, "%u%%", set_.ringBright); break;
-<<<<<<< Updated upstream
-=======
       case kMiFlightKmh: snprintf(b, sizeof b, "%u", (unsigned)set_.flightKmh); break;
       case kMiFlightLog: v = set_.flightLog ? "ON" : "OFF"; vc = set_.flightLog ? kGreen : kGrey; break;
       case kMiStart: {
@@ -434,7 +454,6 @@ void DialUi::drawMenu(Canvas& c) {
         v = names[set_.startPage < 8 ? set_.startPage : 0];
         break;
       }
->>>>>>> Stashed changes
       case kMiRing: v = set_.ring ? "ON" : "OFF"; vc = set_.ring ? kGreen : kGrey; break;
       case kMiNmea: v = set_.nmeaTcp ? "ON" : "OFF"; vc = set_.nmeaTcp ? kGreen : kGrey; break;
       case kMiBle: v = set_.ble ? "ON" : "OFF"; vc = set_.ble ? kGreen : kGrey; break;
@@ -560,6 +579,7 @@ void DialUi::render(Canvas& c, const NavState& nav, const DialEnv& env, uint32_t
     case kRadar: drawRadar(c, nav, now); drawDots(c); break;
     case kList: drawList(c, nav, now); break;
     case kNet: drawNet(c, env); break;
+    case kBle: drawBle(c, env); break;
     case kQr: drawQr(c, env); break;
     case kInfo: drawInfo(c, env); break;
     case kMenu:

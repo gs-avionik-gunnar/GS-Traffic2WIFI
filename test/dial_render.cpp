@@ -8,11 +8,7 @@
 
 
 static uint16_t buf[240 * 30];
-<<<<<<< Updated upstream
-static const DialEnv env = {"192.168.1.1", "GS-Traffic-a1b2", "c3d4a1b2", 2, true, false, "4.0Beta1", "3.0"};
-=======
 static DialEnv env = {"192.168.1.1", "GS-Traffic-a1b2", "c3d4a1b2", 2, true, false, true, true, 1, "GS-Traffic-a1b2", "4.0", "3.0"};
->>>>>>> Stashed changes
 
 static void dump(DialUi& ui, const NavState& n, uint32_t now, const char* name) {
   FILE* f = fopen(name, "wb");
@@ -56,13 +52,8 @@ int main(int argc, char** argv) {
   DialUi ui;
   ui.begin(s, 0);
   now = 10500;
-<<<<<<< Updated upstream
-  const char* names[] = {"flight", "gnss", "radar", "list", "net", "qr", "info", "menu"};
-  for (int p = 0; p < 8; ++p) {
-=======
   const char* names[] = {"flight", "gnss", "radar", "list", "net", "ble", "qr", "info", "flights", "menu"};
   for (int p = 0; p < 10; ++p) {
->>>>>>> Stashed changes
     ui.gotoPage(p);
     snprintf(name, sizeof name, "%s/page_%d_%s.ppm", dir, p, names[p]);
     dump(ui, n, now, name);

@@ -1,10 +1,6 @@
 #pragma once
 
-<<<<<<< Updated upstream
-#define GS_FW_VERSION "4.0Beta1"
-=======
 #define GS_FW_VERSION "4.1BETA1"
->>>>>>> Stashed changes
 
 // ---- GPIO assignment (unchanged from 3.x) ------------------------------------------
 #define PIN_HWTYPE_A 12      // HW 2.0 boards pull both pins to GND

@@ -1,8 +1,4 @@
-<<<<<<< Updated upstream
-# GS-Traffic2WIFI 4.0Beta1
-=======
 # GS-Traffic2WIFI 4.1BETA1
->>>>>>> Stashed changes
 
 Complete rewrite of the GS-Traffic2WIFI firmware (Arduino IDE). It bridges a serial NMEA/FLARM source to WiFi (TCP) and, new in 4.0, converts the NMEA data into **GDL90** and broadcasts it via UDP for EFB apps. Hardware 3.0 (M5 Dial) is supported, with its own display driver and no external libraries.
 
@@ -64,7 +60,7 @@ Records every flight with date, start and end time (UTC), duration and the GPS p
 - **Export:** the "Flights" tab of the WebUI has an "Export CSV" button (date, start, end, duration in seconds, start/end position; UTC, comma separated). The file is built in the browser, no firmware space is used.
 - **Display (hardware 3.0):** own page "Flights" after Info (press the wheel to open, turn to browse): date, UTC start and end time, duration and start/end position; click = delete this flight (with confirmation), last entries = "Delete all" and "Back". Function on/off and speed are in Settings (Flight log, Log km/h).
 
-## What 4.0Beta1 brings
+## What 4.0 brings
 
 ### GDL90 output (UDP, default port 4000)
 - Generated from the NMEA stream:
@@ -93,21 +89,15 @@ Records every flight with date, start and end time (UTC), duration and the GPS p
 - English / German (button in the header, remembered in the browser, default follows the browser language).
 - Help text for every setting (switchable), strict validation with clear error messages, WiFi region with matching channel list, "Saving..." feedback.
 - Ownship identity (address, address type, callsign, emitter category) grouped as advanced settings.
-- LED ring on/off and brightness, Bluetooth LE on/off and name (hardware 3.0).
+- LED ring on/off and brightness (hardware 3.0 only; hidden on hardware 1/2), Bluetooth LE on/off and name; the system panel shows whether phones are connected via Bluetooth LE.
 
 ### Hardware 3.0
 - Build for v3 ESP32-S3. Own GC9A01 driver, own fonts (`tools/genfont.py`), interrupt-driven wheel, buzzer click and a bit-banged WS2812 driver. No extra libraries.
 - **Wheel:** turn = next/previous page, click = action of the page, long press (0.8 s) = back to the first page / leave the menu.
-<<<<<<< Updated upstream
-- **Pages:** Flight data (ground speed, altitude, track) - GNSS (satellites, position state, UTC, HDOP) - Traffic radar (click = range 1/2/5/10 NM, track-up while moving, targets coloured by FLARM alarm level, relative altitude in 100 ft) - Traffic list (5 most important targets: alarm first, then distance; relative altitude, climb/sink) - WiFi (SSID, key, IP, clients) - WiFi QR (scan with the phone camera to join the WiFi) - Info (firmware, hardware) - Settings.
-- **Settings menu** (press the wheel to open): display brightness, LED ring on/off, LED brightness, NMEA TCP, NMEA BLE, GDL90 UDP, factory reset (with confirmation), back. Changing an output saves and restarts; brightness is applied live.
-- **Trafficmod LEDs** (25 x WS2812, GPIO 13): LED 0 = status (green / red alarm / orange no position), LEDs 1-24 = direction of traffic within 5 NM relative to the track; only targets with an alarm are shown (yellow / orange / red = FLARM alarm level 1 / 2 / 3).
-=======
 - **Pages:** Flight data (ground speed, altitude, track) - GNSS (satellites, position state, UTC, HDOP) - Traffic radar (click = range 1/2/5/10 NM, track-up while moving, targets coloured by FLARM alarm level, relative altitude in 100 ft) - Traffic list (5 most important targets: alarm first, then distance; relative altitude, climb/sink) - WiFi (SSID, key, IP, clients) - Bluetooth (name, connected phones) - WiFi QR (scan with the phone camera to join the WiFi) - Info (firmware, hardware) - Flights (flight log) - Settings.
 - **Settings menu** (press the wheel to open): display brightness, LED ring on/off, LED brightness, start page, NMEA TCP, NMEA BLE, GDL90 UDP, flight log on/off, log speed, restart, factory reset (with confirmation), back. Changing an output saves and restarts; brightness and start page are saved without a restart.
 - **Trafficmod LEDs** (25 x WS2812, GPIO 13): at power-up a comet runs once around the ring (1.8 s) and changes its colour on the way (only if the ring is switched on).
 - **Trafficmod LEDs, operation:** LED 0 = status (green / red alarm / orange no position), LEDs 1-24 = direction of traffic within 5 NM relative to the track; only targets with an alarm are shown (yellow / orange / red = FLARM alarm level 1 / 2 / 3).
->>>>>>> Stashed changes
 
 ### Bluetooth LE (Hardware 3.0)
 - The module behaves like a CC2541 / HM-10 serial adapter: service `0xFFE0`, characteristic `0xFFE1` (notify, write without response), 20 byte notifications, same NMEA stream as TCP. Name configurable (default = default SSID), off by default, applies after reboot, runs in parallel to WiFi.
@@ -162,22 +152,13 @@ Threading: `loop()` owns the navigation state (writes under a mutex); the web ta
 - The simulator replaces the old fake modes; it feeds the full pipeline (TCP, serial, GDL90, BLE, LEDs).
 - Factory reset: hold GPIO 19 to GND at power-up (hardware 1/2) or use the display menu (hardware 3); the WPA key is no longer exposed by the web API.
 
-## Not verified yet
-
-- GDL90 has been verified with SkyDemon only.
-- NIC 8 / NACp from HDOP is not confirmed in SkyDemon (fallback would be NIC 10 / NACp 9).
-
 ## Version history
 
 GS-Traffic2WIFI software 1.0 and 1.1 was a stripped down fork of [ESP32-Serial-Bridge](https://github.com/AlphaLima/ESP32-Serial-Bridge). With version 2.0 there are a lot of extensions and the codebase was reworked in most parts; version 2.0 and higher offer a WebUI for configuring the device. Software 1.1 was the first official release and was shipped with GS-Traffic2WIFI modules offered by [gs-avionik.de](https://www.gs-avionik.de).
 
-<<<<<<< Updated upstream
-**4.0Beta1** - complete rewrite, see above (GDL90, Bluetooth LE, hardware 3.0 with display, new WebUI).
-=======
 **4.1BETA1** - aircraft databases (FLARMnet, OGN: registration in GDL90, optional in the NMEA stream) and flight log: date, UTC start/end time, duration and start/end position of the last 50 flights, configurable start/stop speed, WebUI on all hardware versions, display menu on hardware 3.0.
 
 **4.0 (stable)** - complete rewrite, see above: GDL90 output, NMEA over Bluetooth LE, hardware 3.0 (M5 Dial) with display, traffic radar, LED ring and WiFi QR code, new WebUI in English and German.
->>>>>>> Stashed changes
 
 **3.0c** - minor changes
 - Modified serial code to solve some of the 3.0b bugs.

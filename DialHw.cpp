@@ -10,6 +10,7 @@
 #include <soc/gpio_reg.h>
 
 #include "App.h"
+#include "Ble.h"
 #include "Config.h"
 #include "DialUi.h"
 #include "FlightStore.h"
@@ -199,6 +200,10 @@ void fillEnv(DialEnv& e) {
   e.fw = GS_FW_VERSION;
   e.hw = "3.0";
   e.simulating = g_stats.simActive != 0;
+  e.bleAvail = ble::available();
+  e.bleOn = g_settings.ble;  // takes effect after a reboot, like the setting itself
+  e.bleConn = (uint8_t)ble::connections();
+  strncpy(e.bleName, g_settings.bleName, sizeof e.bleName - 1);
   const bool ap = !g_settings.clientMode || g_apFallback;
   e.apMode = ap;
   if (ap) {
@@ -341,12 +346,9 @@ void task(void*) {
       keep.nmeaTcp = ns.nmeaTcp;
       keep.gdl90 = ns.gdl90;
       keep.ble = ns.ble;
-<<<<<<< Updated upstream
-=======
       keep.startPage = ns.startPage;
       keep.flightLog = ns.flightLog;
       keep.flightKmh = ns.flightKmh;
->>>>>>> Stashed changes
       settingsSave(keep);
       if (act == kDialSaveReboot) {
         delay(500);
