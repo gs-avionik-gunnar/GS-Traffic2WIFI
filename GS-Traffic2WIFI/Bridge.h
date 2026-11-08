@@ -8,6 +8,7 @@
 #include <WiFiUdp.h>
 
 #include "Config.h"
+#include "CallsignDb.h"
 #include "Gdl90.h"
 #include "Nmea.h"
 #include "Simulator.h"
@@ -22,6 +23,8 @@ class Bridge {
   void ingest(const uint8_t* data, size_t n, uint32_t now);
   void handleLine(const char* line, uint32_t now);
   void forwardRaw(const uint8_t* data, size_t n);
+  void forwardNmea(const uint8_t* data, size_t n);  // TCP + BLE, with registrations when enabled
+  static void emitNmea(const uint8_t* d, size_t n, void* ctx);
   void acceptClients();
   void pollSerial(uint32_t now);
   void pollSimulator(uint32_t now);
@@ -46,6 +49,7 @@ class Bridge {
   uint32_t nextConnectTryMs_;
 
   nmea::LineAssembler assembler_;
+  csdb::LineRewriter rewriter_;
   gdl90::Publisher publisher_;
   Simulator simulator_;
   bool simulate_;

@@ -1,4 +1,4 @@
-// GS-Traffic2WIFI 4.0 - serial/NMEA to WiFi bridge with GDL90 output for ESP32.
+// GS-Traffic2WIFI 4.1 - serial/NMEA to WiFi bridge with GDL90 output for ESP32.
 //
 // Architecture (see README.md):
 //   Nmea.*       NMEA line assembly, checksum, parsers            (pure C++, unit-tested)
@@ -8,7 +8,7 @@
 //   Settings.*   NVS persistence + migration from 3.x
 //   Bridge.*     serial/TCP/UDP data path (runs in loop())
 //   WebUi.*      HTTP UI + OTA (own FreeRTOS task)
-//   Gfx/DialUi/DialHw/DialFont  hardware 3.0 (M5 Dial, ESP32-S3): round display, wheel, LED ring
+//   Gfx/DialUi/DialHw/DialFont  hardware v3 (ESP32-S3): round display, wheel, LED ring
 //
 // Build with the Arduino IDE: board "ESP32 Dev Module", Arduino-ESP32 core 2.0.x or 3.x.
 // No additional libraries are needed.
@@ -22,6 +22,8 @@
 #include "Bridge.h"
 #include "Config.h"
 #include "DialHw.h"
+#include "FlightStore.h"
+#include "CallsignStore.h"
 #include "Regions.h"
 #include "Settings.h"
 #include "StatusLed.h"
@@ -30,9 +32,9 @@
 static Bridge bridge;
 
 static void detectHardware() {
-  if (dialhw::supported()) {  // ESP32-S3 build = hardware 3.0 (M5 Dial)
+  if (dialhw::supported()) {  // ESP32-S3 build = hardware v3
     g_hw3 = true;
-    g_hwName = "3.0 (M5 Dial)";
+    g_hwName = "3.0";
     return;
   }
   pinMode(PIN_HWTYPE_A, INPUT_PULLUP);
@@ -150,6 +152,8 @@ void setup() {
   if (g_hw3) dialhw::begin();
   Serial.printf("\nGS-Traffic2WIFI %s (HW %s), built %s %s\n", GS_FW_VERSION, g_hwName, __DATE__, __TIME__);
 
+  flights::begin();
+  if (g_hw3) csstore::begin();  // aircraft databases: v3 only (v1/v2 are updated over the air and have no big data partition)
   startWifi();
   bridge.begin();
   webBegin();

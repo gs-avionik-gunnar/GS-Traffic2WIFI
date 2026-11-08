@@ -127,6 +127,16 @@ nmea::Type NavState::ingestLine(const char* line, uint32_t now) {
   return t;
 }
 
+// Days since 1970-01-01 for a civil date (proleptic Gregorian).
+static uint32_t daysFromCivil(int y, int m, int d) {
+  y -= m <= 2;
+  int era = y / 400;
+  int yoe = y - era * 400;
+  int doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+  int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return (uint32_t)(era * 146097 + doe - 719468);
+}
+
 void NavState::applyRmc(const nmea::Rmc& r, uint32_t now) {
   rmcValid = r.valid;
   posMs = now;
@@ -141,6 +151,10 @@ void NavState::applyRmc(const nmea::Rmc& r, uint32_t now) {
     timeValid = true;
     secOfDay = r.secOfDay;
     timeMs = now;
+    if (r.hasDate) {
+      dateValid = true;
+      utcDay = daysFromCivil(r.year, r.month, r.day);
+    }
   }
 }
 

@@ -157,6 +157,21 @@ static bool toTime(const char* s, uint32_t& sec) {
   return true;
 }
 
+// ddmmyy -> year 2000..2099
+static bool toDate(const char* s, uint16_t& y, uint8_t& m, uint8_t& d) {
+  if (!s) return false;
+  for (int i = 0; i < 6; ++i)
+    if (s[i] < '0' || s[i] > '9') return false;
+  int dd = (s[0] - '0') * 10 + (s[1] - '0');
+  int mm = (s[2] - '0') * 10 + (s[3] - '0');
+  int yy = (s[4] - '0') * 10 + (s[5] - '0');
+  if (dd < 1 || dd > 31 || mm < 1 || mm > 12) return false;
+  y = (uint16_t)(2000 + yy);
+  m = (uint8_t)mm;
+  d = (uint8_t)dd;
+  return true;
+}
+
 static float norm360(double v) {
   v = fmod(v, 360.0);
   if (v < 0) v += 360.0;
@@ -172,6 +187,7 @@ bool parseRmc(char** f, int n, Rmc& o) {
     o.hasTime = true;
     o.secOfDay = t;
   }
+  if (n > 9 && toDate(f[9], o.year, o.month, o.day)) o.hasDate = true;
   bool ok = (f[2][0] == 'A');
   if (n > 12 && f[12][0] == 'N') ok = false;  // mode indicator: not valid
   if (!ok) return true;

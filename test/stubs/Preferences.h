@@ -16,4 +16,7 @@ class Preferences {
   uint32_t getUInt(const char*, uint32_t d = 0);
   uint16_t getUShort(const char*, uint16_t d = 0);
   int getInt(const char*, int d = 0);
+  bool remove(const char*);
+  size_t putBytes(const char*, const void*, size_t);
+  size_t getBytes(const char*, void*, size_t);
 };

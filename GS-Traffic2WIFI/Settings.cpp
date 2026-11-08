@@ -55,6 +55,9 @@ void settingsDefaults(Settings& s) {
   s.ringBright = 30;
   s.ring = false;
   s.startPage = 0;
+  s.nmeaReg = false;
+  s.flightLog = true;
+  s.flightKmh = 60;
 }
 
 static uint32_t clampU(uint32_t v, uint32_t lo, uint32_t hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -95,6 +98,7 @@ void settingsSanitize(Settings& s) {
   s.dialBright = (uint8_t)clampU(s.dialBright, 10, 100);
   s.ringBright = (uint8_t)clampU(s.ringBright, 5, 100);
   s.startPage = (uint8_t)clampU(s.startPage, 0, 7);
+  s.flightKmh = (uint16_t)clampU(s.flightKmh, 20, 300);
   s.debug = (uint8_t)clampU(s.debug, 0, 3);
   if (s.clientHost[0] == '\0') strcpy(s.clientHost, "192.168.1.1");
   for (char* c = s.callsign; *c; ++c)
@@ -169,6 +173,9 @@ static void readAll(Preferences& p, Settings& s) {
   s.ringBright = p.getUChar("tmbr", s.ringBright);
   s.ring = p.getBool("tmod", s.ring);
   s.startPage = p.getUChar("dlstart", s.startPage);
+  s.nmeaReg = p.getBool("nreg", s.nmeaReg);
+  s.flightLog = p.getBool("flog", s.flightLog);
+  s.flightKmh = p.getUShort("fkmh", s.flightKmh);
   s.debug = p.getUChar("debug", s.debug);
   s.simWifi = p.getBool("simw", s.simWifi);
   s.simSerial = p.getBool("sims", s.simSerial);
@@ -207,6 +214,9 @@ static void writeAll(Preferences& p, const Settings& s) {
   p.putUChar("tmbr", s.ringBright);
   p.putBool("tmod", s.ring);
   p.putUChar("dlstart", s.startPage);
+  p.putBool("nreg", s.nmeaReg);
+  p.putBool("flog", s.flightLog);
+  p.putUShort("fkmh", s.flightKmh);
   p.putUChar("debug", s.debug);
   p.putBool("simw", s.simWifi);
   p.putBool("sims", s.simSerial);

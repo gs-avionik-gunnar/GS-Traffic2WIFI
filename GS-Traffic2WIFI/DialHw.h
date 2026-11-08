@@ -1,4 +1,4 @@
-// Hardware 3.0 (M5 Dial) glue: GC9A01 display, wheel, button, buzzer, Trafficmod LED ring.
+// Hardware v3 glue: GC9A01 display, wheel, button, buzzer, Trafficmod LED ring.
 // No external libraries. Everything runs in its own FreeRTOS task; on boards that are not an
 // ESP32-S3 this module compiles to nothing.
 #pragma once

@@ -9,7 +9,10 @@
 
 #include "App.h"
 #include "Ble.h"
+#include "CallsignDb.h"
+#include "CallsignStore.h"
 #include "Config.h"
+#include "FlightStore.h"
 #include "Regions.h"
 #include "WebPage.h"
 
@@ -86,8 +89,10 @@ static void handleStatus() {
     if (!t.used || NavState::age(now, t.lastMs) > kTargetTimeoutMs) continue;
     ++count;
     if (shown >= 12) continue;
-    jf(b, cap, len, "%s{\"id\":\"%06lX\",\"d\":%d,\"b\":%d,\"a\":", shown ? "," : "", (unsigned long)t.id, (int)t.distM,
-       (int)t.bearingDeg);
+    char reg[csdb::kRegLen + 1];
+    if (!csdb::lookup(t.id, reg)) reg[0] = 0;
+    jf(b, cap, len, "%s{\"id\":\"%06lX\",\"r\":\"%s\",\"d\":%d,\"b\":%d,\"a\":", shown ? "," : "", (unsigned long)t.id, reg,
+       (int)t.distM, (int)t.bearingDeg);
     if (t.altValid) jf(b, cap, len, "%ld", (long)t.altFt);
     else jf(b, cap, len, "null");
     jf(b, cap, len, ",\"al\":%u}", (unsigned)t.alarm);
@@ -149,10 +154,10 @@ static void handleGetConfig() {
      "{\"ssid\":\"%s\",\"country\":\"%s\",\"channel\":%u,\"clientMode\":%d,\"clientHost\":\"%s\",\"defaultGw\":%d,\"reducePower\":%d,"
      "\"baud\":%lu,\"tcpPort\":%u,\"nmeaTcp\":%d,\"gdl90\":%d,\"gdl90Port\":%u,\"gdl90Traffic\":%d,\"stratuxHb\":%d,\"g90Cast\":%u,\"ffId\":%d,\"nmeaStrict\":%d,"
      "\"ownAddr\":\"%06lX\",\"ownAddrType\":%u,\"callsign\":\"%s\",\"emitter\":%u,\"trafficLed\":%u,\"positionLed\":%d,"
-     "\"trafficHoldS\":%u,\"positionHoldS\":%u,\"ring\":%d,\"ringBright\":%u,\"ble\":%d,\"bleName\":\"%s\",\"bleAvail\":%d,\"ringAvail\":%d,\"startPage\":%u,\"debug\":%u,\"simWifi\":%d,\"simSerial\":%d}",
+     "\"trafficHoldS\":%u,\"positionHoldS\":%u,\"ring\":%d,\"ringBright\":%u,\"ble\":%d,\"bleName\":\"%s\",\"bleAvail\":%d,\"ringAvail\":%d,\"dbAvail\":%d,\"startPage\":%u,\"nmeaReg\":%d,\"flightLog\":%d,\"flightKmh\":%u,\"debug\":%u,\"simWifi\":%d,\"simSerial\":%d}",
      ssid, s.country, s.channel, s.clientMode, s.clientHost, s.defaultGw, s.reducePower, (unsigned long)s.baud, s.tcpPort, s.nmeaTcp,
      s.gdl90, s.gdl90Port, s.gdl90Traffic, s.stratuxHb, (unsigned)s.g90Cast, s.ffId, s.nmeaStrict, (unsigned long)s.ownAddr, s.ownAddrType, cs, s.emitter, s.trafficLed,
-     s.positionLed, s.trafficHoldS, s.positionHoldS, s.ring, s.ringBright, s.ble, s.bleName, ble::available(), g_hw3, (unsigned)s.startPage, s.debug, s.simWifi, s.simSerial);
+     s.positionLed, s.trafficHoldS, s.positionHoldS, s.ring, s.ringBright, s.ble, s.bleName, ble::available(), g_hw3, g_hw3, (unsigned)s.startPage, s.nmeaReg, s.flightLog, (unsigned)s.flightKmh, s.debug, s.simWifi, s.simSerial);
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "application/json", g_json);
 }
@@ -231,6 +236,7 @@ static void handlePostConfig() {
   NUM(s.trafficLed, "trafficLed", "Red LED alarm level", 0, 3);
   NUM(s.ringBright, "ringBright", "LED ring brightness", 5, 100);
   NUM(s.startPage, "startPage", "Start page", 0, 7);
+  NUM(s.flightKmh, "flightKmh", "Flight log speed", 20, 300);
   NUM(s.debug, "debug", "Debug level", 0, 3);
   NUM(s.ownAddrType, "ownAddrType", "Address type", 0, 1);
   NUM(s.emitter, "emitter", "Emitter category", 0, 22);
@@ -281,6 +287,8 @@ static void handlePostConfig() {
   s.positionLed = argBool("positionLed");
   s.ring = g_hw3 && argBool("ring");  // the LED ring exists on hardware 3.0 only
   s.ble = argBool("ble");
+  s.flightLog = argBool("flightLog");
+  s.nmeaReg = g_hw3 && argBool("nmeaReg");  // needs the aircraft database (v3 only)
   if (server.hasArg("bleName")) {
     String bn = server.arg("bleName");
     if (bn.length() < 1 || bn.length() > 20) FAIL("Bluetooth name must be 1-20 characters");
@@ -306,6 +314,93 @@ static void handleRegions() {
   }
   jf(g_json, sizeof g_json, len, "]");
   server.send(200, "application/json", g_json);
+}
+
+
+// ------------------------------------------------------------- flight log
+static void handleFlights() {
+  using flightlog::Flight;
+  static const size_t kCap = 64 + (size_t)flightlog::kMaxFlights * 130;
+  char* b = (char*)malloc(kCap);
+  Flight* fl = (Flight*)malloc(sizeof(Flight) * flightlog::kMaxFlights);
+  if (!b || !fl) {
+    free(b);
+    free(fl);
+    server.send(500, "text/plain", "out of memory");
+    return;
+  }
+  bool active = false;
+  int n = flights::snapshot(fl, flightlog::kMaxFlights, &active);
+  size_t len = 0;
+  jf(b, kCap, len, "{\"active\":%s,\"list\":[", active ? "true" : "false");
+  for (int i = 0; i < n; ++i)
+    jf(b, kCap, len, "%s{\"s\":%lu,\"d\":%lu,\"a\":[%.5f,%.5f],\"b\":[%.5f,%.5f]}", i ? "," : "", (unsigned long)fl[i].start,
+       (unsigned long)fl[i].dur, fl[i].sLat / 1e5, fl[i].sLon / 1e5, fl[i].eLat / 1e5, fl[i].eLon / 1e5);
+  jf(b, kCap, len, "]}");
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "application/json", b);
+  free(b);
+  free(fl);
+}
+
+static void handleFlightsDelete() {
+  if (server.arg("all") == "1") {
+    flights::clearAll();
+  } else {
+    unsigned long st = strtoul(server.arg("start").c_str(), nullptr, 10);
+    if (!st || !flights::removeByStart((uint32_t)st)) {
+      server.send(404, "text/plain", "not found");
+      return;
+    }
+  }
+  server.send(200, "text/plain", "OK");
+}
+
+
+// ------------------------------------------------------- aircraft database
+static bool g_dbOk = false;
+static int g_dbSlot = 0;
+
+static void handleDb() {
+  size_t len = 0;
+  jf(g_json, sizeof g_json, len, "{\"avail\":%d,\"s\":[{\"count\":%lu,\"cap\":%lu},{\"count\":%lu,\"cap\":%lu}]}", csstore::available(),
+     (unsigned long)csstore::count(0), (unsigned long)csstore::capacity(0), (unsigned long)csstore::count(1), (unsigned long)csstore::capacity(1));
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "application/json", g_json);
+}
+
+static void handleDbDone() {
+  if (g_dbOk) server.send(200, "text/plain", "OK");
+  else {
+    char m[160];
+    snprintf(m, sizeof m, "%s (slot size %lu bytes)", *csstore::lastError() ? csstore::lastError() : "upload failed", (unsigned long)csstore::capacity(g_dbSlot));
+    server.send(400, "text/plain", m);
+  }
+}
+
+static void dbUpload(int slot) {
+  HTTPUpload& up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    g_dbSlot = slot;
+    g_dbOk = csstore::uploadBegin(slot);
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (g_dbOk) g_dbOk = csstore::uploadWrite(up.buf, up.currentSize);
+  } else if (up.status == UPLOAD_FILE_END) {
+    g_dbOk = csstore::uploadEnd() && g_dbOk;
+  } else if (up.status == UPLOAD_FILE_ABORTED) {
+    csstore::uploadAbort();
+    g_dbOk = false;
+  }
+}
+static void handleDbUpload0() { dbUpload(0); }
+static void handleDbUpload1() { dbUpload(1); }
+static void handleDbDelete0() {
+  csstore::erase(0);
+  server.send(200, "text/plain", "OK");
+}
+static void handleDbDelete1() {
+  csstore::erase(1);
+  server.send(200, "text/plain", "OK");
 }
 
 static void handleReset() {
@@ -359,6 +454,13 @@ void webBegin() {
   server.on("/api/config", HTTP_GET, handleGetConfig);
   server.on("/api/regions", HTTP_GET, handleRegions);
   server.on("/api/config", HTTP_POST, handlePostConfig);
+  server.on("/api/flights", HTTP_GET, handleFlights);
+  server.on("/api/flights/delete", HTTP_POST, handleFlightsDelete);
+  server.on("/api/db", HTTP_GET, handleDb);
+  server.on("/api/db/flarmnet", HTTP_POST, handleDbDone, handleDbUpload0);
+  server.on("/api/db/ogn", HTTP_POST, handleDbDone, handleDbUpload1);
+  server.on("/api/db/flarmnet/delete", HTTP_POST, handleDbDelete0);
+  server.on("/api/db/ogn/delete", HTTP_POST, handleDbDelete1);
   server.on("/api/reset", HTTP_POST, handleReset);
   server.on("/update", HTTP_POST, handleUpdateDone, handleUpdateUpload);
   server.onNotFound([]() { server.send(404, "text/plain", "not found"); });

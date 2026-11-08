@@ -1,10 +1,11 @@
-// Page logic and drawing for the hardware 3.0 round display (M5 Dial).
+// Page logic and drawing for the hardware v3 round display.
 // Pure C++ (no Arduino dependencies) so it can be rendered and tested on a PC.
 // Input: wheel rotation, short click, long press. Output: pages drawn into a gfx::Canvas
 // and a few actions (save settings, reboot, factory reset) for the hardware layer.
 #pragma once
 #include <stdint.h>
 
+#include "FlightLog.h"
 #include "Gfx.h"
 #include "Qr.h"
 #include "Settings.h"
@@ -22,13 +23,16 @@ struct DialEnv {
   char bleName[21];
   const char* fw;
   const char* hw;
+  const flightlog::Flight* fl;  // flight log, newest first
+  int nFl;
+  bool flActive;                // a flight is in progress
 };
 
-enum DialAction { kDialNone = 0, kDialSave, kDialSaveReboot, kDialFactoryReset };
+enum DialAction { kDialNone = 0, kDialSave, kDialSaveReboot, kDialFactoryReset, kDialFlightDelete, kDialFlightDeleteAll };
 
 class DialUi {
  public:
-  enum Page { kFlight, kGnss, kRadar, kList, kNet, kBle, kQr, kInfo, kMenu, kPageCount };
+  enum Page { kFlight, kGnss, kRadar, kList, kNet, kQr, kBle, kFlights, kMenu, kInfo, kPageCount };
 
   void begin(const Settings& s, uint32_t now);  // the first page is s.startPage
   void onRotate(int steps);  // + clockwise
@@ -40,16 +44,22 @@ class DialUi {
   // Results for the hardware layer
   DialAction takeAction() { DialAction a = action_; action_ = kDialNone; return a; }
   const Settings& settings() const { return set_; }
+  uint32_t deleteStart() const { return delStart_; }  // flight to delete after kDialFlightDelete
   bool takeBeep() { bool b = beep_; beep_ = false; return b; }
   bool takeDirty() { bool d = dirty_; dirty_ = false; return d; }
   int page() const { return page_; }
+  bool bootAnimating() const { return splashActive(); }  // the boot animation needs ~25 fps
   void gotoPage(int p) { page_ = p; dirty_ = true; }
 
   // Test hooks
   int menuIndex() const { return menuSel_; }
+  int menuCategory() const { return menuCat_; }  // -1 = top level
   bool editing() const { return editing_; }
   bool menuOpen() const { return menuOpen_; }
   int confirmState() const { return confirm_; }
+  int confirmKind() const { return confirmKind_; }
+  int flightView() const { return fview_; }
+  int flightSel() const { return fsel_; }
 
   // Altitude shown on the flight page: GPS altitude above MSL, pressure altitude only as fallback.
   static bool displayAltitudeFt(const NavState& n, uint32_t now, int32_t& ft, bool& pressure);
@@ -57,7 +67,12 @@ class DialUi {
   static const int kRangesNm = 4;
 
  private:
-  enum MenuItem { kMiDisplay, kMiRing, kMiRingBright, kMiStart, kMiNmea, kMiBle, kMiGdl90, kMiRestart, kMiReset, kMiBack, kMiCount };
+  enum MenuItem { kMiDisplay, kMiRing, kMiRingBright, kMiStart, kMiNmea, kMiBle, kMiGdl90, kMiFlightLog, kMiFlightKmh, kMiSim, kMiRestart, kMiReset, kMiBack };
+  // Settings are grouped: top level = categories (Display, LED ring, Outputs, Flight log, System, Back), menuCat_ = open category or -1.
+  enum { kCats = 5 };
+  static const uint8_t* catItems(int cat, int& len);
+  int listLen() const;
+  int curItem() const;  // item under the cursor inside an open category
   void drawFlight(gfx::Canvas& c, const NavState& n, uint32_t now);
   void drawGnss(gfx::Canvas& c, const NavState& n, uint32_t now);
   void drawRadar(gfx::Canvas& c, const NavState& n, uint32_t now);
@@ -67,8 +82,12 @@ class DialUi {
   void drawBle(gfx::Canvas& c, const DialEnv& e);
   void drawInfo(gfx::Canvas& c, const DialEnv& e);
   void drawMenu(gfx::Canvas& c);
+  void drawFlights(gfx::Canvas& c, const DialEnv& e);
+  int fEntries() const { return nFl_ ? nFl_ + 2 : 1; }
   void drawConfirm(gfx::Canvas& c);
   void drawSplash(gfx::Canvas& c, const DialEnv& e);
+  bool splashActive() const;
+  void skipSplash();
   void drawDots(gfx::Canvas& c);
   void title(gfx::Canvas& c, const char* t, int y = 12);
   void leaveMenu();
@@ -79,12 +98,20 @@ class DialUi {
   Settings set_;      // working copy of the settings
   Settings orig_;     // as loaded, to detect changes that need a reboot
   uint32_t t0_ = 0;
+  uint32_t now_ = 0;          // time of the frame being drawn
+  bool splashShown_ = false;  // the boot animation has been drawn (input then skips it)
   int page_ = kFlight;
   int rangeIdx_ = 1;  // 1, 2, 5, 10 NM
-  int menuSel_ = 0, menuTop_ = 0;
+  int menuSel_ = 0, menuTop_ = 0, menuCat_ = -1;
   bool editing_ = false;
   bool menuOpen_ = false;  // the Settings page is only shown until the wheel is pressed
   int confirm_ = 0;   // 0 off, 1 = Cancel selected, 2 = Reset selected
+  int confirmKind_ = 0;  // 0 factory reset, 1 delete one flight, 2 delete all flights
+  int fview_ = 0;        // 1 = flight list opened on the Flights page
+  int fsel_ = 0;         // flights 0..nFl_-1, then "Delete all", then "Back"
+  int nFl_ = 0;
+  uint32_t flStart_[flightlog::kMaxFlights];
+  uint32_t delStart_ = 0;
   DialAction action_ = kDialNone;
   bool beep_ = false;
   bool dirty_ = true;
@@ -96,3 +123,6 @@ struct RingFrame {
   uint8_t rgb[25][3];
 };
 void computeRing(const NavState& nav, uint32_t now, uint8_t statusLed, RingFrame& out);
+// Start-up animation: a comet runs once around the ring and changes its colour on the way. Dark after kBootRingMs.
+enum { kBootRingMs = 1800 };
+void computeBootRing(uint32_t elapsedMs, RingFrame& out);

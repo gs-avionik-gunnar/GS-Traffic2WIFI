@@ -2,6 +2,8 @@
 
 #include "App.h"
 #include "Ble.h"
+#include "CallsignDb.h"
+#include "FlightStore.h"
 #include "StatusLed.h"
 
 static void onStaIpAssigned(arduino_event_id_t, arduino_event_info_t);
@@ -42,6 +44,7 @@ void Bridge::begin() {
   pc.ownAddrType = s.ownAddrType;
   strncpy(pc.callsign, s.callsign, 8);
   pc.emitter = s.emitter;
+  pc.lookup = csdb::lookup;
   publisher_.configure(pc);
 }
 
@@ -114,17 +117,26 @@ void Bridge::pollSerial(uint32_t now) {
     if (n == 0) break;
     budget -= (int)n;
     g_stats.rxBytes += n;
-    if (g_settings.nmeaTcp) forwardRaw(chunk, n);  // forward first: lowest latency
-    if (g_settings.ble) ble::send(chunk, n);
+    forwardNmea(chunk, n);  // forward first: lowest latency
     ingest(chunk, n, now);
   }
+}
+
+void Bridge::emitNmea(const uint8_t* d, size_t n, void* ctx) {
+  Bridge* b = static_cast<Bridge*>(ctx);
+  if (g_settings.nmeaTcp) b->forwardRaw(d, n);
+  if (g_settings.ble) ble::send(d, n);
+}
+
+void Bridge::forwardNmea(const uint8_t* data, size_t n) {
+  if (g_settings.nmeaReg && csdb::count() > 0) rewriter_.feed(data, n, emitNmea, this);  // PFLAA ID -> ID!registration
+  else emitNmea(data, n, this);
 }
 
 void Bridge::onSimLine(const char* line) {
   char buf[nmea::kMaxLine + 4];
   size_t n = snprintf(buf, sizeof buf, "%s\r\n", line);
-  if (g_settings.simWifi && g_settings.nmeaTcp) forwardRaw((const uint8_t*)buf, n);
-  if (g_settings.simWifi && g_settings.ble) ble::send((const uint8_t*)buf, n);
+  if (g_settings.simWifi) forwardNmea((const uint8_t*)buf, n);
   if (g_settings.simSerial) serial_->write((const uint8_t*)buf, n);
   ingest((const uint8_t*)buf, n, lastNow_);
 }
@@ -248,6 +260,7 @@ void Bridge::poll() {
   else if (apActive) pollSerial(now);
   else pollClientMode(now);
 
+  flights::tick(g_nav, now, !simulate_);
   pollGdl90(now);
   if (g_settings.ble) ble::poll(now);
   updateLed(now);

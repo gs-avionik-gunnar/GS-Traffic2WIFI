@@ -89,7 +89,7 @@ void Simulator::emitSet(LineSink sink, void* ctx) {
     if (kOrbits[i].alarm > top) top = kOrbits[i].alarm;
 
   emitLine(sink, ctx, "$PFLAU,2,1,2,1,%d,0,2,%d,%d,DD5678", top, -50, (int)sqrt((double)bN * bN + (double)bE * bE));
-  emitLine(sink, ctx, "$PFLAA,0,%d,%d,100,1,DD1234,%d,0,25,0.5,1", aN, aE, (int)fmod(ph * 180.0 / kPi + 90.0, 360.0));
+  emitLine(sink, ctx, "$PFLAA,0,%d,%d,100,1,3FEBA7,%d,0,25,0.5,1", aN, aE, (int)fmod(ph * 180.0 / kPi + 90.0, 360.0));
   emitLine(sink, ctx, "$PFLAA,%d,%d,%d,-50,2,DD5678,90,0,30,-1.0,8", alarm ? 2 : 0, bN, bE);
   for (int i = 0; i < 4; ++i) {
     const Orbit& o = kOrbits[i];

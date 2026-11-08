@@ -40,6 +40,9 @@ struct Rmc {
   bool valid;  // status 'A' and a parsable position
   bool hasTime;
   uint32_t secOfDay;
+  bool hasDate;
+  uint16_t year;   // full year, e.g. 2026
+  uint8_t month, day;
   bool hasPos;
   double lat, lon;
   bool hasSog;

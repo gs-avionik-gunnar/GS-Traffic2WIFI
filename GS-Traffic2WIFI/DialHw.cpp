@@ -13,6 +13,7 @@
 #include "Ble.h"
 #include "Config.h"
 #include "DialUi.h"
+#include "FlightStore.h"
 #include "Settings.h"
 
 namespace dialhw {
@@ -190,8 +191,12 @@ void beep() {
 #endif
 }
 
+flightlog::Flight s_fl[flightlog::kMaxFlights];  // flight log snapshot for the display (dial task only)
+
 void fillEnv(DialEnv& e) {
   memset(&e, 0, sizeof e);
+  e.nFl = flights::snapshot(s_fl, flightlog::kMaxFlights, &e.flActive);
+  e.fl = s_fl;
   e.fw = GS_FW_VERSION;
   e.hw = "3.0";
   e.simulating = g_stats.simActive != 0;
@@ -251,6 +256,9 @@ void task(void*) {
   RingFrame lastFrame;
   memset(&lastFrame, 0xFF, sizeof lastFrame);
   bool ringWasOn = false;
+  const uint32_t bootT0 = millis();
+  uint32_t lastAnim = 0;
+  bool animDone = false;
 
   for (;;) {
     uint32_t now = millis();
@@ -282,10 +290,39 @@ void task(void*) {
       s_ui.onLongPress();
     }
 
+    // start-up animation of the LED ring (once, if the ring is on)
+    if (!animDone) {
+      if (!s_ui.settings().ring || now - bootT0 >= (uint32_t)kBootRingMs) {
+        animDone = true;
+        memset(&lastFrame, 0xFF, sizeof lastFrame);  // hand the ring back to the normal logic
+      } else if (now - lastAnim >= 35) {
+        lastAnim = now;
+        RingFrame f;
+        computeBootRing(now - bootT0, f);
+#if DIAL_RING_OFFSET || DIAL_RING_REVERSE
+        RingFrame g = f;
+        for (int i = 0; i < 24; ++i) {
+          int src = DIAL_RING_REVERSE ? (24 - i) % 24 : i;
+          memcpy(g.rgb[1 + (i + DIAL_RING_OFFSET) % 24], f.rgb[1 + src], 3);
+        }
+        f = g;
+#endif
+        ringWrite(f.rgb, s_ui.settings().ringBright);
+        ringWasOn = true;
+      }
+    }
+
     if (s_ui.takeBeep()) beep();
 
     // actions requested by the menu
     DialAction act = s_ui.takeAction();
+    if (act == kDialFlightDelete) {
+      flights::removeByStart(s_ui.deleteStart());
+      act = kDialNone;
+    } else if (act == kDialFlightDeleteAll) {
+      flights::clearAll();
+      act = kDialNone;
+    }
     if (act != kDialNone) {
       // draw the "restarting" screen once, then do the work
       if (navSnapshot(s_nav, 50)) {
@@ -309,7 +346,10 @@ void task(void*) {
       keep.nmeaTcp = ns.nmeaTcp;
       keep.gdl90 = ns.gdl90;
       keep.ble = ns.ble;
+      keep.simWifi = ns.simWifi;
       keep.startPage = ns.startPage;
+      keep.flightLog = ns.flightLog;
+      keep.flightKmh = ns.flightKmh;
       settingsSave(keep);
       if (act == kDialSaveReboot) {
         delay(500);
@@ -318,12 +358,15 @@ void task(void*) {
       g_settings.dialBright = keep.dialBright;
       g_settings.ringBright = keep.ringBright;
       g_settings.ring = keep.ring;
+      g_settings.flightLog = keep.flightLog;
+      g_settings.flightKmh = keep.flightKmh;
     }
     // live preview of the brightness values while the menu edits them
     applyOutputs(s_ui.settings());
 
     // redraw at 5 Hz or immediately after input
-    if (s_ui.takeDirty() || now - lastDraw >= 200) {
+    const uint32_t period = s_ui.bootAnimating() ? 40 : 200;  // boot animation ~25 fps
+    if (s_ui.takeDirty() || now - lastDraw >= period) {
       lastDraw = now;
       if (navSnapshot(s_nav, 20)) {
         fillEnv(env);
@@ -335,7 +378,7 @@ void task(void*) {
         }
         // LED ring
         const Settings& cs = s_ui.settings();
-        if (cs.ring) {
+        if (cs.ring && animDone) {
           RingFrame f;
           computeRing(s_nav, now, (uint8_t)g_stats.led, f);
 #if DIAL_RING_OFFSET || DIAL_RING_REVERSE
@@ -352,7 +395,7 @@ void task(void*) {
             lastRing = now;
           }
           ringWasOn = true;
-        } else if (ringWasOn) {
+        } else if (ringWasOn && animDone) {
           RingFrame off;
           memset(&off, 0, sizeof off);
           ringWrite(off.rgb, 0);

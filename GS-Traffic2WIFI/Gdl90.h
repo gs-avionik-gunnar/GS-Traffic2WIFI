@@ -66,6 +66,7 @@ struct PublisherConfig {
   uint8_t ownAddrType;
   char callsign[9];
   uint8_t emitter;
+  bool (*lookup)(uint32_t id, char* reg);  // optional: registration for a traffic ID (zero terminated, max 8 chars)
 };
 
 typedef void (*FrameSink)(const uint8_t* frame, size_t len, void* ctx);
