@@ -1,6 +1,6 @@
 #pragma once
 
-#define GS_FW_VERSION "4.1BETA1"
+#define GS_FW_VERSION "4.1BETA2"
 
 // ---- GPIO assignment (unchanged from 3.x) ------------------------------------------
 #define PIN_HWTYPE_A 12      // HW 2.0 boards pull both pins to GND
@@ -34,8 +34,8 @@
 #define SERIAL_RX_BUFFER 2048
 #define SERIAL_READ_CHUNK 128
 
-// ---- Hardware 3.0: M5 Dial (ESP32-S3 StampS3, GC9A01 240x240 round display) ---------------------
-// Only compiled when the board target is an ESP32-S3. Pins as on the M5 Dial; if your unit differs
+// ---- Hardware v3 (ESP32-S3, GC9A01 240x240 round display) ---------------------
+// Only compiled when the board target is an ESP32-S3. Pins as on the v3 hardware; if your unit differs
 // (or colours/orientation look wrong) change them here.
 #define PIN_SERIAL_RX_V3 2
 #define PIN_SERIAL_TX_V3 1
@@ -51,7 +51,7 @@
 #define PIN_DIAL_BUTTON 42
 #define PIN_DIAL_BUZZER 3
 #define PIN_DIAL_RING 13       // Trafficmod LEDs (WS2812, 1 status LED + 24 ring LEDs) on the Grove port
-#define DIAL_LCD_MADCTL 0x48   // 0x08 = BGR; +0x40 mirrors horizontally (needed on the M5 Dial), +0x80 vertically
+#define DIAL_LCD_MADCTL 0x48   // 0x08 = BGR; +0x40 mirrors horizontally (needed on v3), +0x80 vertically
 #define DIAL_LCD_INVERT 1      // GC9A01 panels on the Dial need inversion on
 #define DIAL_ENC_TRANSITIONS_PER_DETENT 4  // set to 2 if one click of the wheel jumps two steps
 #define DIAL_ENC_INVERT 0      // 1 = reverse the wheel direction

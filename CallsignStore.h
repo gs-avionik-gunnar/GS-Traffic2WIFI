@@ -10,6 +10,7 @@ namespace csstore {
 void begin();                   // find the partition, open existing databases
 bool available();               // a data partition exists
 uint32_t capacity(int slot);    // bytes of the slot
+const char* lastError();        // reason of the last failed upload (empty if none)
 uint32_t count(int slot);       // entries, 0 = empty
 bool uploadBegin(int slot);     // closes the slot, starts writing
 bool uploadWrite(const uint8_t* data, size_t n);

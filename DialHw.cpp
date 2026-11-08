@@ -346,6 +346,7 @@ void task(void*) {
       keep.nmeaTcp = ns.nmeaTcp;
       keep.gdl90 = ns.gdl90;
       keep.ble = ns.ble;
+      keep.simWifi = ns.simWifi;
       keep.startPage = ns.startPage;
       keep.flightLog = ns.flightLog;
       keep.flightKmh = ns.flightKmh;

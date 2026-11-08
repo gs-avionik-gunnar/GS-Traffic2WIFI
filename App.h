@@ -24,7 +24,7 @@ extern NavState g_nav;
 extern LiveStats g_stats;
 extern SemaphoreHandle_t g_navMutex;
 extern const char* g_hwName;
-extern bool g_hw3;         // hardware 3.0 (M5 Dial, ESP32-S3)
+extern bool g_hw3;         // hardware v3 (ESP32-S3)
 extern bool g_hw2;         // hardware 2.0 detected (different serial pins)
 extern bool g_apFallback;  // client mode failed at boot, running as AP so the config stays reachable
 

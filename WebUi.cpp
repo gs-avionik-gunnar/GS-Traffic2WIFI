@@ -154,10 +154,10 @@ static void handleGetConfig() {
      "{\"ssid\":\"%s\",\"country\":\"%s\",\"channel\":%u,\"clientMode\":%d,\"clientHost\":\"%s\",\"defaultGw\":%d,\"reducePower\":%d,"
      "\"baud\":%lu,\"tcpPort\":%u,\"nmeaTcp\":%d,\"gdl90\":%d,\"gdl90Port\":%u,\"gdl90Traffic\":%d,\"stratuxHb\":%d,\"g90Cast\":%u,\"ffId\":%d,\"nmeaStrict\":%d,"
      "\"ownAddr\":\"%06lX\",\"ownAddrType\":%u,\"callsign\":\"%s\",\"emitter\":%u,\"trafficLed\":%u,\"positionLed\":%d,"
-     "\"trafficHoldS\":%u,\"positionHoldS\":%u,\"ring\":%d,\"ringBright\":%u,\"ble\":%d,\"bleName\":\"%s\",\"bleAvail\":%d,\"ringAvail\":%d,\"startPage\":%u,\"nmeaReg\":%d,\"flightLog\":%d,\"flightKmh\":%u,\"debug\":%u,\"simWifi\":%d,\"simSerial\":%d}",
+     "\"trafficHoldS\":%u,\"positionHoldS\":%u,\"ring\":%d,\"ringBright\":%u,\"ble\":%d,\"bleName\":\"%s\",\"bleAvail\":%d,\"ringAvail\":%d,\"dbAvail\":%d,\"startPage\":%u,\"nmeaReg\":%d,\"flightLog\":%d,\"flightKmh\":%u,\"debug\":%u,\"simWifi\":%d,\"simSerial\":%d}",
      ssid, s.country, s.channel, s.clientMode, s.clientHost, s.defaultGw, s.reducePower, (unsigned long)s.baud, s.tcpPort, s.nmeaTcp,
      s.gdl90, s.gdl90Port, s.gdl90Traffic, s.stratuxHb, (unsigned)s.g90Cast, s.ffId, s.nmeaStrict, (unsigned long)s.ownAddr, s.ownAddrType, cs, s.emitter, s.trafficLed,
-     s.positionLed, s.trafficHoldS, s.positionHoldS, s.ring, s.ringBright, s.ble, s.bleName, ble::available(), g_hw3, (unsigned)s.startPage, s.nmeaReg, s.flightLog, (unsigned)s.flightKmh, s.debug, s.simWifi, s.simSerial);
+     s.positionLed, s.trafficHoldS, s.positionHoldS, s.ring, s.ringBright, s.ble, s.bleName, ble::available(), g_hw3, g_hw3, (unsigned)s.startPage, s.nmeaReg, s.flightLog, (unsigned)s.flightKmh, s.debug, s.simWifi, s.simSerial);
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "application/json", g_json);
 }
@@ -288,7 +288,7 @@ static void handlePostConfig() {
   s.ring = g_hw3 && argBool("ring");  // the LED ring exists on hardware 3.0 only
   s.ble = argBool("ble");
   s.flightLog = argBool("flightLog");
-  s.nmeaReg = argBool("nmeaReg");
+  s.nmeaReg = g_hw3 && argBool("nmeaReg");  // needs the aircraft database (v3 only)
   if (server.hasArg("bleName")) {
     String bn = server.arg("bleName");
     if (bn.length() < 1 || bn.length() > 20) FAIL("Bluetooth name must be 1-20 characters");
@@ -359,6 +359,7 @@ static void handleFlightsDelete() {
 
 // ------------------------------------------------------- aircraft database
 static bool g_dbOk = false;
+static int g_dbSlot = 0;
 
 static void handleDb() {
   size_t len = 0;
@@ -370,12 +371,17 @@ static void handleDb() {
 
 static void handleDbDone() {
   if (g_dbOk) server.send(200, "text/plain", "OK");
-  else server.send(400, "text/plain", "Invalid database or too large for this slot, or no data partition");
+  else {
+    char m[160];
+    snprintf(m, sizeof m, "%s (slot size %lu bytes)", *csstore::lastError() ? csstore::lastError() : "upload failed", (unsigned long)csstore::capacity(g_dbSlot));
+    server.send(400, "text/plain", m);
+  }
 }
 
 static void dbUpload(int slot) {
   HTTPUpload& up = server.upload();
   if (up.status == UPLOAD_FILE_START) {
+    g_dbSlot = slot;
     g_dbOk = csstore::uploadBegin(slot);
   } else if (up.status == UPLOAD_FILE_WRITE) {
     if (g_dbOk) g_dbOk = csstore::uploadWrite(up.buf, up.currentSize);

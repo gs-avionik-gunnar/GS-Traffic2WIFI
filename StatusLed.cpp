@@ -8,7 +8,7 @@
 namespace statusled {
 
 void begin() {
-  if (g_hw3) return;  // GPIO 5/18 are display pins on the M5 Dial
+  if (g_hw3) return;  // GPIO 5/18 are display pins on v3
   pinMode(PIN_LED_GREEN, OUTPUT);
   pinMode(PIN_LED_RED, OUTPUT);
   set(0);

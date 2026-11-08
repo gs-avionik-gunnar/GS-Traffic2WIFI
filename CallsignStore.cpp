@@ -15,6 +15,7 @@ size_t s_fill = 0;
 uint32_t s_off = 0, s_total = 0;  // offsets inside the slot
 int s_slot = 0;
 bool s_ok = false;
+const char* s_err = "";
 const size_t kSector = 4096;
 
 // slot 0 gets a third of the partition (FLARMnet is small), slot 1 the rest; both sector aligned
@@ -29,11 +30,16 @@ bool readFn(uint32_t off, void* buf, size_t n) { return s_part && esp_partition_
 
 bool flushSector() {
   if (s_fill == 0) return true;
-  if (s_off + kSector > slotSize(s_slot)) return false;
+  if (s_off + kSector > slotSize(s_slot)) {
+    s_err = "too large for this slot";
+    return false;
+  }
   memset(s_buf + s_fill, 0xFF, kSector - s_fill);
   uint32_t abs = slotBase(s_slot) + s_off;
-  if (esp_partition_erase_range(s_part, abs, kSector) != ESP_OK) return false;
-  if (esp_partition_write(s_part, abs, s_buf, kSector) != ESP_OK) return false;
+  if (esp_partition_erase_range(s_part, abs, kSector) != ESP_OK || esp_partition_write(s_part, abs, s_buf, kSector) != ESP_OK) {
+    s_err = "flash write failed";
+    return false;
+  }
   s_off += kSector;
   s_fill = 0;
   return true;
@@ -51,8 +57,15 @@ bool available() { return s_part != nullptr; }
 uint32_t capacity(int slot) { return slotSize(slot); }
 uint32_t count(int slot) { return csdb::count(slot); }
 
+const char* lastError() { return s_err; }
+
 bool uploadBegin(int slot) {
-  if (!s_part || slot < 0 || slot >= csdb::kSlots) return false;
+  s_err = "";
+  if (!s_part) {
+    s_err = "no data partition (use partition scheme: Default 4MB with spiffs)";
+    return false;
+  }
+  if (slot < 0 || slot >= csdb::kSlots) return false;
   csdb::closeSlot(slot);
   free(s_buf);
   s_buf = (uint8_t*)malloc(kSector);
@@ -89,7 +102,10 @@ bool uploadEnd() {
   s_buf = nullptr;
   s_ok = false;
   if (ok) ok = csdb::openSlot(s_slot, slotBase(s_slot), slotSize(s_slot)) && (uint32_t)csdb::kHeader + csdb::count(s_slot) * csdb::kRec == s_total;
-  if (!ok) erase(s_slot);
+  if (!ok) {
+    if (!*s_err) s_err = "invalid database file";
+    erase(s_slot);
+  }
   return ok;
 }
 

@@ -39,7 +39,7 @@ struct Settings {
   // Flight log
   bool flightLog;        // record flights (start/end time, duration, start/end position)
   uint16_t flightKmh;    // ground speed threshold for start/stop, km/h
-  // Hardware 3.0 (M5 Dial): display + LED ring
+  // Hardware v3: display + LED ring
   uint8_t dialBright;    // display backlight, 10..100 %
   uint8_t ringBright;    // Trafficmod LED brightness, 5..100 %
   bool ring;             // Trafficmod LED ring connected / enabled

@@ -14,8 +14,39 @@ void DialUi::begin(const Settings& s, uint32_t now) {
   set_ = s;
   orig_ = s;
   t0_ = now;
-  page_ = s.startPage < kMenu ? s.startPage : kFlight;
+  // the stored start page numbers stay as in 4.0: 0 flight, 1 GNSS, 2 radar, 3 list, 4 WiFi, 5 Bluetooth, 6 QR, 7 info
+  static const uint8_t kStartMap[8] = {kFlight, kGnss, kRadar, kList, kNet, kBle, kQr, kInfo};
+  page_ = s.startPage < 8 ? kStartMap[s.startPage] : kFlight;
   dirty_ = true;
+}
+
+const uint8_t* DialUi::catItems(int cat, int& len) {
+  static const uint8_t kDisplayItems[] = {kMiDisplay, kMiStart, kMiBack};
+  static const uint8_t kRingItems[] = {kMiRing, kMiRingBright, kMiBack};
+  static const uint8_t kOutItems[] = {kMiNmea, kMiBle, kMiGdl90, kMiBack};
+  static const uint8_t kFlightItems[] = {kMiFlightLog, kMiFlightKmh, kMiBack};
+  static const uint8_t kSysItems[] = {kMiSim, kMiRestart, kMiReset, kMiBack};
+  switch (cat) {
+    case 0: len = 3; return kDisplayItems;
+    case 1: len = 3; return kRingItems;
+    case 2: len = 4; return kOutItems;
+    case 3: len = 3; return kFlightItems;
+    default: len = 4; return kSysItems;
+  }
+}
+
+int DialUi::listLen() const {
+  if (menuCat_ < 0) return kCats + 1;  // categories + Back
+  int n;
+  catItems(menuCat_, n);
+  return n;
+}
+
+int DialUi::curItem() const {
+  if (menuCat_ < 0) return -1;
+  int n;
+  const uint8_t* it = catItems(menuCat_, n);
+  return menuSel_ < n ? it[menuSel_] : kMiBack;
 }
 
 void DialUi::onRotate(int steps) {
@@ -27,46 +58,41 @@ void DialUi::onRotate(int steps) {
     return;
   }
   if (page_ == kFlights && fview_) {
-    int n = fsel_ + (steps > 0 ? 1 : -1);
-    fsel_ = n < 0 ? 0 : (n >= fEntries() ? fEntries() - 1 : n);
+    fsel_ = (fsel_ + (steps > 0 ? 1 : fEntries() - 1)) % fEntries();  // endless
     return;
   }
   if (page_ == kMenu && menuOpen_) {
     if (editing_) {
-      if (menuSel_ == kMiDisplay) {
+      if (curItem() == kMiDisplay) {
         int v = (int)set_.dialBright + steps * 10;
         set_.dialBright = (uint8_t)(v < 10 ? 10 : (v > 100 ? 100 : v));
-      } else if (menuSel_ == kMiStart) {
+      } else if (curItem() == kMiStart) {
         int v = (int)set_.startPage + (steps > 0 ? 1 : -1);
         set_.startPage = (uint8_t)(v < 0 ? 0 : (v > 7 ? 7 : v));
-      } else if (menuSel_ == kMiFlightKmh) {
+      } else if (curItem() == kMiFlightKmh) {
         int v = (int)set_.flightKmh + steps * 5;
         set_.flightKmh = (uint16_t)(v < 20 ? 20 : (v > 300 ? 300 : v));
-      } else if (menuSel_ == kMiRingBright) {
+      } else if (curItem() == kMiRingBright) {
         int v = (int)set_.ringBright + steps * 5;
         set_.ringBright = (uint8_t)(v < 5 ? 5 : (v > 100 ? 100 : v));
       }
       return;
     }
-    int n = menuSel_ + (steps > 0 ? 1 : -1) * (abs(steps) > 0 ? 1 : 0);
-    if (n < 0) n = 0;
-    if (n >= kMiCount) n = kMiCount - 1;
-    menuSel_ = n;
+    const int len = listLen();  // endless: after the last row comes the first one and vice versa
+    menuSel_ = (menuSel_ + (steps > 0 ? 1 : len - 1)) % len;
     if (menuSel_ < menuTop_) menuTop_ = menuSel_;
     if (menuSel_ > menuTop_ + 4) menuTop_ = menuSel_ - 4;
     return;
   }
-  int p = page_ + (steps > 0 ? 1 : -1);
-  if (p < 0) p = 0;
-  if (p >= kPageCount) p = kPageCount - 1;
-  page_ = p;
+  page_ = (page_ + (steps > 0 ? 1 : kPageCount - 1)) % kPageCount;  // endless: after Info comes Flight data
 }
 
 void DialUi::leaveMenu() {
   editing_ = false;
   fview_ = 0;
   menuOpen_ = false;  // back on the closed Settings page
-  bool needReboot = set_.nmeaTcp != orig_.nmeaTcp || set_.gdl90 != orig_.gdl90 || set_.ble != orig_.ble;
+  menuCat_ = -1;
+  bool needReboot = set_.nmeaTcp != orig_.nmeaTcp || set_.gdl90 != orig_.gdl90 || set_.ble != orig_.ble || set_.simWifi != orig_.simWifi;
   bool changed = needReboot || set_.dialBright != orig_.dialBright || set_.ringBright != orig_.ringBright ||
                  set_.ring != orig_.ring || set_.startPage != orig_.startPage || set_.flightLog != orig_.flightLog ||
                  set_.flightKmh != orig_.flightKmh;
@@ -123,6 +149,7 @@ void DialUi::onClick() {
   if (page_ != kMenu) return;
   if (!menuOpen_) {
     menuOpen_ = true;
+    menuCat_ = -1;
     menuSel_ = 0;
     menuTop_ = 0;
     return;
@@ -131,7 +158,17 @@ void DialUi::onClick() {
     editing_ = false;
     return;
   }
-  switch (menuSel_) {
+  if (menuCat_ < 0) {  // top level: open a category, or leave
+    if (menuSel_ >= kCats) {
+      leaveMenu();
+    } else {
+      menuCat_ = menuSel_;
+      menuSel_ = 0;
+      menuTop_ = 0;
+    }
+    return;
+  }
+  switch (curItem()) {
     case kMiDisplay:
     case kMiStart:
     case kMiRingBright:
@@ -141,12 +178,17 @@ void DialUi::onClick() {
     case kMiNmea: set_.nmeaTcp = !set_.nmeaTcp; break;
     case kMiBle: set_.ble = !set_.ble; break;
     case kMiGdl90: set_.gdl90 = !set_.gdl90; break;
+    case kMiSim: set_.simWifi = !set_.simWifi; break;
     case kMiRestart:  // saves pending changes and restarts
       action_ = kDialSaveReboot;
       rebooting_ = true;
       break;
     case kMiReset: confirmKind_ = 0; confirm_ = 1; break;
-    case kMiBack: leaveMenu(); break;
+    case kMiBack:  // back to the category list
+      menuSel_ = menuCat_;
+      menuCat_ = -1;
+      menuTop_ = 0;
+      break;
   }
 }
 
@@ -158,6 +200,7 @@ void DialUi::onLongPress() {
   fview_ = 0;
   if (page_ == kMenu && menuOpen_) leaveMenu();
   menuOpen_ = false;
+  menuCat_ = -1;
   page_ = kFlight;
   editing_ = false;
 }
@@ -388,6 +431,7 @@ void DialUi::drawQr(Canvas& c, const DialEnv& e) {
     drawDots(c);
     return;
   }
+  c.text(kFontSmall, 120, 8, Center, kGreen, "WiFi");
   char text[160];
   if (!qr::wifiString(e.ssid, e.key, text, sizeof text)) text[0] = '\0';
   if (strcmp(text, qrText_) != 0 || (!qrOk_ && text[0])) {  // cache: build the code only when SSID/key changed
@@ -418,33 +462,42 @@ void DialUi::drawInfo(Canvas& c, const DialEnv& e) {
   c.text(kFontSmall, 120, 74, Center, kWhite, "GS-Traffic2WIFI");
   snprintf(b, sizeof b, "Firmware %s", e.fw);
   c.text(kFontSmall, 120, 106, Center, kGrey, b);
-  snprintf(b, sizeof b, "Hardware %s (M5 Dial)", e.hw);
+  snprintf(b, sizeof b, "Hardware v%c", e.hw[0]);
   c.text(kFontSmall, 120, 128, Center, kGrey, b);
   c.text(kFontSmall, 120, 168, Center, kGreen, "www.gs-avionik.de");
   drawDots(c);
 }
 
 void DialUi::drawMenu(Canvas& c) {
-  title(c, "Settings", 12);
+  static const char* const catNames[kCats] = {"Display", "LED ring", "Outputs", "Flight log", "System"};
+  title(c, menuOpen_ && menuCat_ >= 0 ? catNames[menuCat_] : "Settings", 12);
   if (!menuOpen_) {
     c.text(kFontSmall, 120, 96, Center, kGrey, "Press the wheel");
     c.text(kFontSmall, 120, 118, Center, kGrey, "to open");
     drawDots(c);
     return;
   }
-  static const char* const labels[kMiCount] = {"Display", "LED ring", "LED bright.", "Start page", "NMEA TCP", "NMEA BLE", "GDL90 UDP", "Flight log", "Log km/h", "Restart", "Factory reset", "Back"};
+  static const char* const labels[] = {"Brightness", "LED ring", "LED bright.", "Start page", "NMEA TCP", "NMEA BLE", "GDL90 UDP", "Flight log", "Log km/h", "Simulator", "Restart", "Factory reset", "Back"};
+  const int total = listLen();
   for (int r = 0; r < 5; ++r) {
     int i = menuTop_ + r;
-    if (i >= kMiCount) break;
+    if (i >= total) break;
     int y = 42 + r * 32;
     bool sel = i == menuSel_;
     if (sel) c.roundRect(24, y - 2, 192, 28, editing_ ? kGreen : kGrey, false);
     uint16_t col = sel ? kWhite : kGrey;
-    c.text(kFontSmall, 38, y + 2, Left, col, labels[i]);
+    if (menuCat_ < 0) {  // category list
+      c.text(kFontSmall, 38, y + 2, Left, col, i < kCats ? catNames[i] : "Back");
+      if (i < kCats) c.text(kFontSmall, 202, y + 2, Right, col, ">");
+      continue;
+    }
+    int n;
+    int item = catItems(menuCat_, n)[i];
+    c.text(kFontSmall, 38, y + 2, Left, col, labels[item]);
     char b[16] = "";
     const char* v = b;
     uint16_t vc = col;
-    switch (i) {
+    switch (item) {
       case kMiDisplay: snprintf(b, sizeof b, "%u%%", set_.dialBright); break;
       case kMiRingBright: snprintf(b, sizeof b, "%u%%", set_.ringBright); break;
       case kMiFlightKmh: snprintf(b, sizeof b, "%u", (unsigned)set_.flightKmh); break;
@@ -458,6 +511,7 @@ void DialUi::drawMenu(Canvas& c) {
       case kMiNmea: v = set_.nmeaTcp ? "ON" : "OFF"; vc = set_.nmeaTcp ? kGreen : kGrey; break;
       case kMiBle: v = set_.ble ? "ON" : "OFF"; vc = set_.ble ? kGreen : kGrey; break;
       case kMiGdl90: v = set_.gdl90 ? "ON" : "OFF"; vc = set_.gdl90 ? kGreen : kGrey; break;
+      case kMiSim: v = set_.simWifi ? "ON" : "OFF"; vc = set_.simWifi ? kRed : kGrey; break;  // test data replaces the real input
       default: break;
     }
     if (*v) c.text(kFontSmall, 202, y + 2, Right, sel && editing_ ? kGreen : vc, v);

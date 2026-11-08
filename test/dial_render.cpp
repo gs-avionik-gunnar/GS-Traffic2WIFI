@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
   DialUi ui;
   ui.begin(s, 0);
   now = 10500;
-  const char* names[] = {"flight", "gnss", "radar", "list", "net", "ble", "qr", "info", "flights", "menu"};
+  const char* names[] = {"flight", "gnss", "radar", "list", "net", "qr", "ble", "flights", "menu", "info"};
   for (int p = 0; p < 10; ++p) {
     ui.gotoPage(p);
     snprintf(name, sizeof name, "%s/page_%d_%s.ppm", dir, p, names[p]);
@@ -66,6 +66,17 @@ int main(int argc, char** argv) {
   ui.onRotate(1); ui.onClick();
   snprintf(name, sizeof name, "%s/menu_edit.ppm", dir);
   dump(ui, n, now, name);
+  // settings categories
+  { DialUi mu; mu.begin(s, 0); mu.gotoPage(DialUi::kMenu); mu.onClick();
+    snprintf(name, sizeof name, "%s/set_top.ppm", dir); dump(mu, n, now, name);
+    for (int i = 0; i < 2; ++i) mu.onRotate(1); mu.onClick();
+    snprintf(name, sizeof name, "%s/set_outputs.ppm", dir); dump(mu, n, now, name);
+    mu.onRotate(1); mu.onRotate(1); mu.onRotate(1); mu.onClick(); mu.onRotate(1); mu.onRotate(1); mu.onRotate(1); mu.onRotate(1);
+    mu.onRotate(-1); mu.onRotate(-1);
+  }
+  { DialUi mu; mu.begin(s, 0); mu.gotoPage(DialUi::kMenu); mu.onClick();
+    for (int i = 0; i < 4; ++i) mu.onRotate(1); mu.onClick(); mu.onClick();
+    snprintf(name, sizeof name, "%s/set_system.ppm", dir); dump(mu, n, now, name); }
   // flight log screens
   static flightlog::Flight fls[3] = {{1793966400u, 3725, 5412345, 950000, 5450000, 975000}, {1793880000u, 600, 5301234, 1054321, 5310000, 1060000}, {1793000000u, 300, 1, 2, 3, 4}};
   env.fl = fls; env.nFl = 3;

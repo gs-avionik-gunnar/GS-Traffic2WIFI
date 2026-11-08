@@ -1,4 +1,4 @@
-// Page logic and drawing for the hardware 3.0 round display (M5 Dial).
+// Page logic and drawing for the hardware v3 round display.
 // Pure C++ (no Arduino dependencies) so it can be rendered and tested on a PC.
 // Input: wheel rotation, short click, long press. Output: pages drawn into a gfx::Canvas
 // and a few actions (save settings, reboot, factory reset) for the hardware layer.
@@ -32,7 +32,7 @@ enum DialAction { kDialNone = 0, kDialSave, kDialSaveReboot, kDialFactoryReset, 
 
 class DialUi {
  public:
-  enum Page { kFlight, kGnss, kRadar, kList, kNet, kBle, kQr, kInfo, kFlights, kMenu, kPageCount };
+  enum Page { kFlight, kGnss, kRadar, kList, kNet, kQr, kBle, kFlights, kMenu, kInfo, kPageCount };
 
   void begin(const Settings& s, uint32_t now);  // the first page is s.startPage
   void onRotate(int steps);  // + clockwise
@@ -52,6 +52,7 @@ class DialUi {
 
   // Test hooks
   int menuIndex() const { return menuSel_; }
+  int menuCategory() const { return menuCat_; }  // -1 = top level
   bool editing() const { return editing_; }
   bool menuOpen() const { return menuOpen_; }
   int confirmState() const { return confirm_; }
@@ -65,7 +66,12 @@ class DialUi {
   static const int kRangesNm = 4;
 
  private:
-  enum MenuItem { kMiDisplay, kMiRing, kMiRingBright, kMiStart, kMiNmea, kMiBle, kMiGdl90, kMiFlightLog, kMiFlightKmh, kMiRestart, kMiReset, kMiBack, kMiCount };
+  enum MenuItem { kMiDisplay, kMiRing, kMiRingBright, kMiStart, kMiNmea, kMiBle, kMiGdl90, kMiFlightLog, kMiFlightKmh, kMiSim, kMiRestart, kMiReset, kMiBack };
+  // Settings are grouped: top level = categories (Display, LED ring, Outputs, Flight log, System, Back), menuCat_ = open category or -1.
+  enum { kCats = 5 };
+  static const uint8_t* catItems(int cat, int& len);
+  int listLen() const;
+  int curItem() const;  // item under the cursor inside an open category
   void drawFlight(gfx::Canvas& c, const NavState& n, uint32_t now);
   void drawGnss(gfx::Canvas& c, const NavState& n, uint32_t now);
   void drawRadar(gfx::Canvas& c, const NavState& n, uint32_t now);
@@ -91,7 +97,7 @@ class DialUi {
   uint32_t t0_ = 0;
   int page_ = kFlight;
   int rangeIdx_ = 1;  // 1, 2, 5, 10 NM
-  int menuSel_ = 0, menuTop_ = 0;
+  int menuSel_ = 0, menuTop_ = 0, menuCat_ = -1;
   bool editing_ = false;
   bool menuOpen_ = false;  // the Settings page is only shown until the wheel is pressed
   int confirm_ = 0;   // 0 off, 1 = Cancel selected, 2 = Reset selected

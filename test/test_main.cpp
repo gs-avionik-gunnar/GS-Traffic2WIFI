@@ -658,29 +658,41 @@ static void testDial() {
   st.dialBright = 80; st.ringBright = 30; st.nmeaTcp = true; st.gdl90 = true;
   DialUi ui;
   ui.begin(st, 0);
-  // wheel changes pages and is clamped at both ends
+  // wheel changes pages and wraps around at both ends
   CHECK(ui.page() == DialUi::kFlight);
   ui.onRotate(-1);
-  CHECK(ui.page() == DialUi::kFlight);
+  CHECK(ui.page() == DialUi::kInfo);   // before the first page comes the last one
+  ui.onRotate(1);
+  CHECK(ui.page() == DialUi::kFlight);  // after the last page comes the first
   for (int i = 0; i < DialUi::kMenu; ++i) ui.onRotate(1);
   CHECK(ui.page() == DialUi::kMenu);
   // the wheel must be pressed once to open the menu; turning only leaves the page
   CHECK(!ui.menuOpen());
   ui.onClick();
   CHECK(ui.menuOpen() && !ui.editing());
-  // menu: Display brightness edit
+  // menu: the top level lists categories; Display > Brightness edit
+  CHECK(ui.menuCategory() == -1);
+  ui.onClick();
+  CHECK(ui.menuCategory() == 0 && !ui.editing());
   ui.onClick();
   CHECK(ui.editing());
   ui.onRotate(-1);
   ui.onClick();
   CHECK(!ui.editing());
   CHECK(ui.settings().dialBright == 70);
+  ui.onRotate(1); ui.onRotate(1);                  // Back
+  ui.onClick();
+  CHECK(ui.menuCategory() == -1);
   // toggling an output requires a reboot, brightness alone only a save
-  ui.onRotate(1);  // LED ring
+  ui.onRotate(1);                                  // category LED ring
   ui.onClick();
+  ui.onClick();                                    // LED ring on
   CHECK(ui.settings().ring);
-  ui.onRotate(1); ui.onRotate(1); ui.onRotate(1);  // NMEA TCP
+  ui.onRotate(1); ui.onRotate(1);                  // Back
   ui.onClick();
+  ui.onRotate(1);                                  // category Outputs
+  ui.onClick();
+  ui.onClick();                                    // NMEA TCP
   CHECK(!ui.settings().nmeaTcp);
   ui.onLongPress();  // leaves the menu
   CHECK(ui.takeAction() == kDialSaveReboot);
@@ -688,7 +700,7 @@ static void testDial() {
   DialUi u2;
   u2.begin(st, 0);
   u2.gotoPage(DialUi::kMenu);
-  u2.onClick(); u2.onClick(); u2.onRotate(1); u2.onClick();
+  u2.onClick(); u2.onClick(); u2.onClick(); u2.onRotate(1); u2.onClick();  // open, Display, edit brightness
   u2.onLongPress();
   CHECK(u2.takeAction() == kDialSave);
   CHECK(u2.settings().dialBright == 90);
@@ -700,7 +712,8 @@ static void testDial() {
   CHECK(u5.page() == DialUi::kRadar);
   u5.gotoPage(DialUi::kMenu);
   u5.onClick();                                   // open
-  for (int i = 0; i < 3; ++i) u5.onRotate(1);     // Start page
+  u5.onClick();                                   // category Display
+  u5.onRotate(1);                                 // Start page
   u5.onClick();                                   // edit
   u5.onRotate(1); u5.onRotate(1);
   u5.onClick();
@@ -712,7 +725,9 @@ static void testDial() {
   u6.begin(st, 0);
   u6.gotoPage(DialUi::kMenu);
   u6.onClick();
-  for (int i = 0; i < 9; ++i) u6.onRotate(1);
+  for (int i = 0; i < 4; ++i) u6.onRotate(1);     // System
+  u6.onClick();
+  u6.onRotate(1);                                 // Restart
   u6.onClick();
   CHECK(u6.takeAction() == kDialSaveReboot);
   // factory reset needs the confirmation and defaults to Cancel
@@ -720,7 +735,9 @@ static void testDial() {
   u3.begin(st, 0);
   u3.gotoPage(DialUi::kMenu);
   u3.onClick();
-  for (int i = 0; i < 10; ++i) u3.onRotate(1);
+  for (int i = 0; i < 4; ++i) u3.onRotate(1);     // System
+  u3.onClick();
+  u3.onRotate(1); u3.onRotate(1);                 // Factory reset
   u3.onClick();
   CHECK(u3.confirmState() == 1);
   u3.onClick();
@@ -771,13 +788,28 @@ static void testDial() {
     // log switch and speed live in the Settings menu
     uf.gotoPage(DialUi::kMenu);
     uf.onClick();
-    for (int i = 0; i < 7; ++i) uf.onRotate(1);
+    for (int i = 0; i < 3; ++i) uf.onRotate(1);   // category Flight log
+    uf.onClick();
+    CHECK(uf.menuCategory() == 3);
     uf.onClick();                                  // Flight log toggle
     CHECK(uf.settings().flightLog != sf.flightLog);
     uf.onRotate(1); uf.onClick(); uf.onRotate(1); uf.onRotate(1); uf.onClick();
     CHECK(uf.settings().flightKmh == 70);
+    uf.onRotate(1); uf.onClick();                  // Back to the category list
+    CHECK(uf.menuCategory() == -1 && uf.menuIndex() == 3);
     uf.onLongPress();
     CHECK(uf.takeAction() == kDialSave);
+    // simulator switch in System: needs a restart
+    DialUi us;
+    us.begin(sf, 0);
+    us.gotoPage(DialUi::kMenu);
+    us.onClick();
+    for (int i = 0; i < 4; ++i) us.onRotate(1);
+    us.onClick();
+    us.onClick();                                  // Simulator
+    CHECK(us.settings().simWifi && us.menuCategory() == 4);
+    us.onLongPress();
+    CHECK(us.takeAction() == kDialSaveReboot);
     // empty log
     DialEnv ee; memset(&ee, 0, sizeof ee); ee.fw = "x"; ee.hw = "3.0";
     DialUi ue; ue.begin(st, 0); ue.gotoPage(DialUi::kFlights); ue.onClick();
@@ -1043,7 +1075,72 @@ static void testBootRing() {
   (void)tailLed;
 }
 
+static void testPageOrder() {
+  Settings st;
+  memset(&st, 0, sizeof st);
+  DialUi u;
+  u.begin(st, 0);
+  const int expect[] = {DialUi::kFlight, DialUi::kGnss, DialUi::kRadar, DialUi::kList, DialUi::kNet, DialUi::kQr, DialUi::kBle, DialUi::kFlights, DialUi::kMenu, DialUi::kInfo};
+  CHECK(DialUi::kPageCount == 10);
+  for (int i = 0; i < 10; ++i) {
+    CHECK(u.page() == expect[i]);
+    u.onRotate(1);
+  }
+  CHECK(u.page() == DialUi::kFlight);  // after Info (last page) the wheel wraps to the first page
+  // stored start page numbers keep their meaning: 4 WiFi, 5 Bluetooth, 6 QR, 7 Info
+  const int want[8] = {DialUi::kFlight, DialUi::kGnss, DialUi::kRadar, DialUi::kList, DialUi::kNet, DialUi::kBle, DialUi::kQr, DialUi::kInfo};
+  for (int i = 0; i < 8; ++i) {
+    Settings s2 = st;
+    s2.startPage = (uint8_t)i;
+    DialUi v;
+    v.begin(s2, 0);
+    CHECK(v.page() == want[i]);
+  }
+}
+
+static void testMenuWrap() {
+  Settings st;
+  memset(&st, 0, sizeof st);
+  DialUi u;
+  u.begin(st, 0);
+  u.gotoPage(DialUi::kMenu);
+  u.onClick();                                  // open: top level, 6 rows (5 categories + Back)
+  CHECK(u.menuIndex() == 0);
+  u.onRotate(-1);
+  CHECK(u.menuIndex() == 5);                    // before the first comes the last
+  u.onRotate(1);
+  CHECK(u.menuIndex() == 0);                    // after the last comes the first
+  for (int i = 0; i < 12; ++i) u.onRotate(1);
+  CHECK(u.menuIndex() == 0);                    // two full turns
+  u.onRotate(1); u.onRotate(1); u.onRotate(1); u.onRotate(1);
+  u.onClick();                                  // System (4 rows)
+  CHECK(u.menuCategory() == 4 && u.menuIndex() == 0);
+  u.onRotate(-1);
+  CHECK(u.menuIndex() == 3);
+  u.onRotate(1);
+  CHECK(u.menuIndex() == 0);
+  // flight list wraps as well
+  flightlog::Flight f[2] = {{100000, 600, 1, 2, 3, 4}, {90000, 600, 1, 2, 3, 4}};
+  DialEnv e;
+  memset(&e, 0, sizeof e);
+  e.fw = "x"; e.hw = "3.0"; e.fl = f; e.nFl = 2;
+  static uint16_t bm[240 * 30];
+  gfx::Canvas cv;
+  NavState n;
+  DialUi v;
+  v.begin(st, 0);
+  v.gotoPage(DialUi::kFlights);
+  for (int y0 = 0; y0 < 240; y0 += 30) { cv.setBand(bm, y0, 30); v.render(cv, n, e, 10000); }
+  v.onClick();
+  v.onRotate(-1);
+  CHECK(v.flightSel() == 3);                    // 2 flights + Delete all + Back -> last = Back
+  v.onRotate(1);
+  CHECK(v.flightSel() == 0);
+}
+
 int main() {
+  testMenuWrap();
+  testPageOrder();
   testBootRing();
   testCallsignDb();
   testFlightLog();
